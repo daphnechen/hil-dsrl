@@ -30,8 +30,8 @@ checkpoint_path = "/home/qirico/Desktop/All-Weird/Human-Interventions/jax-hitl-h
 
 from experiments.config import DefaultTrainingConfig
 class TrainConfig(DefaultTrainingConfig):
-    image_keys = ["front", "wrist"]
-    classifier_keys = ["front", "wrist"]
+    image_keys = ["front", "side", "wrist"]
+    classifier_keys = ["front", "side", "wrist"]
     proprio_keys = ['panda/tcp_pos', 'panda/tcp_vel', 'panda/gripper_pos']
     # buffer_period = 1000
     # checkpoint_period = 5000

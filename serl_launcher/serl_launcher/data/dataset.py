@@ -84,7 +84,9 @@ class Dataset(object):
     ) -> frozen_dict.FrozenDict:
         if indx is None:
             if hasattr(self.np_random, "integers"):
-                indx = self.np_random.integers(len(self), size=batch_size)
+                # import ipdb; ipdb.set_trace()
+                # indx = self.np_random.integers(len(self), size=batch_size)
+                indx = self.np_random.integers(len(self)+1, size=batch_size)
             else:
                 indx = self.np_random.randint(len(self), size=batch_size)
 

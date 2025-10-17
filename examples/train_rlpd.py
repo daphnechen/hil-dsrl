@@ -54,8 +54,10 @@ flags.DEFINE_boolean(
 )  # debug mode will disable wandb logging
 
 
-devices = jax.local_devices()
-num_devices = len(devices)
+devices = jax.local_devices()[1]
+# devices = jax.local_devices()
+num_devices = 1
+# num_devices = len(devices)
 sharding = jax.sharding.PositionalSharding(devices)
 
 
@@ -575,8 +577,11 @@ def main(_):
 
     # replicate agent across devices
     # need the jnp.array to avoid a bug where device_put doesn't recognize primitives
+    # agent = jax.device_put(
+    #     jax.tree_util.tree_map(jnp.array, agent), sharding.replicate()
+    # )
     agent = jax.device_put(
-        jax.tree_util.tree_map(jnp.array, agent), sharding.replicate()
+        jax.tree_util.tree_map(jnp.array, agent)
     )
 
     if FLAGS.checkpoint_path is not None and os.path.exists(FLAGS.checkpoint_path):
@@ -601,14 +606,15 @@ def main(_):
         )
         # set up wandb and logging
         wandb_logger = make_wandb_logger(
-            project="hil-serl-cubereach2",
+            project="hil-serl-simplecube",
             description=FLAGS.exp_name,
             debug=FLAGS.debug,
         )
         return replay_buffer, wandb_logger
 
     if FLAGS.learner:
-        sampling_rng = jax.device_put(sampling_rng, device=sharding.replicate())
+        sampling_rng = jax.device_put(sampling_rng)
+        # sampling_rng = jax.device_put(sampling_rng, device=sharding.replicate())
         replay_buffer, wandb_logger = create_replay_buffer_and_wandb_logger()
         demo_buffer = MemoryEfficientReplayBufferDataStore(
             env.observation_space,
@@ -671,7 +677,8 @@ def main(_):
         )
 
     elif FLAGS.actor:
-        sampling_rng = jax.device_put(sampling_rng, sharding.replicate())
+        sampling_rng = jax.device_put(sampling_rng)
+        # sampling_rng = jax.device_put(sampling_rng, sharding.replicate())
         data_store = QueuedDataStore(10000)  # the queue size on the actor
         intvn_data_store = QueuedDataStore(10000)
 

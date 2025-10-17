@@ -20,7 +20,14 @@ class RSCapture:
             self.cfg.enable_stream(rs.stream.depth, dim[0], dim[1], rs.format.z16, fps)
         self.profile = self.pipe.start(self.cfg)
         self.s = self.profile.get_device().query_sensors()[0]
-        self.s.set_option(rs.option.exposure, exposure)
+        # self.s.set_option(rs.option.exposure, exposure)
+        if serial_number == "123622270802": # wrist
+            self.s.set_option(rs.option.exposure, 6000)
+            self.s.set_option(rs.option.gain, 60)
+        else: # third person cameras
+            self.s.set_option(rs.option.exposure, 250)
+            self.s.set_option(rs.option.gain, 60)
+        
 
         # Create an align object
         # rs.align allows us to perform alignment of depth frames to others frames

@@ -21,32 +21,64 @@ from experiments.cube_reach3.wrapper import CubeReach3Env
 from experiments.usb_pickup_insertion.wrapper import GripperPenaltyWrapper
 
 class EnvConfig(DefaultEnvConfig):
-    SERVER_URL = "http://127.0.0.1:5000/"
+    SERVER_URL = "http://127.0.0.1:5000/" # "http://127.0.0.1:5000/"
+    # REALSENSE_CAMERAS = {
+    #     "side_1": {
+    #         "camera_type": "rs",
+    #         "serial_number": "215322079254",
+    #         "dim": (1280, 720),
+    #         "exposure": 13000,
+    #     },
+    #     # "wrist_1": {
+    #     #     "camera_type": "zed",
+    #     #     "serial_number": "16744838",
+    #     #     "dim": (720, 1280), # height, width
+    #     #     "exposure": 12000,
+    #     # }
+    # }
     REALSENSE_CAMERAS = {
-        "side_1": {
-            "camera_type": "rs",
-            "serial_number": "215322079254",
-            "dim": (1280, 720),
-            "exposure": 13000,
+        # "front": {
+        #     "camera_type": "rs", # Realsense
+        #     "serial_number": "215122255213",
+        #     "dim": (640, 480), # (1280, 720),
+        #     "exposure": 40000,
+        # },
+        "side": {
+            "camera_type": "rs", # Realsense
+            "serial_number": "947122060531",
+            "dim": (1280, 720), # (640, 480),
+            "exposure": 40000,
         },
-        # "wrist_1": {
-        #     "camera_type": "zed",
-        #     "serial_number": "16744838",
-        #     "dim": (720, 1280), # height, width
-        #     "exposure": 12000,
+        # "wrist": {
+        #     "camera_type": "rs", # Realsense
+        #     "serial_number": "123622270802",
+        #     "dim": (640, 480), # (848, 480)
+        #     "exposure": 40000,
         # }
     }
+    # IMAGE_CROP = {
+    #     # "wrist_1": lambda img: img[0:720, 450:1150], # did you know? you can check these values on realsense-viewer even for zed cameras.
+    #     "side_1": lambda img: img[260:700, 420:1270],
+    # }
+
+    # IMAGE_CROP = {
+    #     "front": lambda img: img[150:450, 350:1100],
+    #     "wrist": lambda img: img[100:500, 400:900],
+    # }
+
     IMAGE_CROP = {
-        # "wrist_1": lambda img: img[0:720, 450:1150], # did you know? you can check these values on realsense-viewer even for zed cameras.
-        "side_1": lambda img: img[260:700, 420:1270],
+        "front": lambda img: img[180:430, 150:550],  
+        "side": lambda img: img[70:470, 450:1150], 
     }
 
     # Step 1: add reset pose
     RESET_POSE = np.array([0.48, 0.04, 0.24, np.pi, 0, np.pi / 2])
 
     # Step 2: add bounding boxes
-    ABS_POSE_LIMIT_LOW  = np.array([0.42, -0.14, 0.20, np.pi - 0.05, -0.05, np.pi / 2 - 0.05])
-    ABS_POSE_LIMIT_HIGH = np.array([0.51,  0.24, 0.29, np.pi + 0.05,  0.05, np.pi / 2 + 0.05])
+    # ABS_POSE_LIMIT_LOW  = np.array([0.42, -0.14, 0.20, np.pi - 0.05, -0.05, np.pi / 2 - 0.05])
+    # ABS_POSE_LIMIT_HIGH = np.array([0.51,  0.24, 0.29, np.pi + 0.05,  0.05, np.pi / 2 + 0.05])
+    ABS_POSE_LIMIT_LOW  = np.array([0.42, -0.44, 0.10, np.pi - 0.05, -0.05, np.pi / 2 - 0.05])
+    ABS_POSE_LIMIT_HIGH = np.array([0.61,  0.44, 0.29, np.pi + 0.05,  0.05, np.pi / 2 + 0.05])
 
     # Step 3: set reset randomization
     RANDOM_RESET = True
@@ -54,7 +86,7 @@ class EnvConfig(DefaultEnvConfig):
     RANDOM_RZ_RANGE = np.pi / 6
     ACTION_SCALE = np.array([0.05, 0.3, 1]) # Testing x
     DISPLAY_IMAGE = True
-    MAX_EPISODE_LENGTH = 400
+    MAX_EPISODE_LENGTH = 300 # 600
 
 
     ## Step 4: Copy the same control parameters -- keep it the same as below : TODO: figure out how to tune these+
@@ -101,8 +133,10 @@ class EnvConfig(DefaultEnvConfig):
 
 
 class TrainConfig(DefaultTrainingConfig):
-    image_keys = ["side_1"]
-    classifier_keys = ["side_1"]
+    image_keys = ["side"]
+    # image_keys = ["front", "side", "wrist"]
+    classifier_keys = ["side"] # ["wrist"]
+    # classifier_keys = ["side", "wrist"] # ["wrist"]
     proprio_keys = ["tcp_pose", "tcp_vel", "tcp_force", "tcp_torque", "gripper_pose"]
     # buffer_period = 1000
     # checkpoint_period = 5000

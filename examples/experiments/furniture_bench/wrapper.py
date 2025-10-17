@@ -8,7 +8,7 @@ from pynput import keyboard
 
 from franka_env.envs.franka_env import FrankaEnv
 
-class CubeReach3Env(FrankaEnv):
+class FurnitureBenchEnv(FrankaEnv):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 

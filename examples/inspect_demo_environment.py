@@ -16,6 +16,7 @@ from experiments.usb_pickup_insertion.config import EnvConfig as USBPickupInsert
 from experiments.cube_reach.config import EnvConfig as CubeReachTrainConfig
 from experiments.cube_reach2.config import EnvConfig as CubeReach2TrainConfig
 from experiments.cube_reach3.config import EnvConfig as CubeReach3TrainConfig
+from experiments.furniture_bench.config import EnvConfig as FurnitureBenchTrainConfig
 
 ENV_CONFIG_MAPPING = {
     "ram_insertion": RAMInsertionTrainConfig,
@@ -23,6 +24,7 @@ ENV_CONFIG_MAPPING = {
     "cube_reach": CubeReachTrainConfig,
     "cube_reach2": CubeReach2TrainConfig,
     "cube_reach3": CubeReach3TrainConfig,
+    "furniture_bench": FurnitureBenchTrainConfig,
 }
 
 from franka_env.camera.video_capture import VideoCapture

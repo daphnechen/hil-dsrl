@@ -6,10 +6,12 @@ import jax.numpy as jnp
 
 from serl_launcher.common.common import default_init
 
+from typing import Union
 
 class MLP(nn.Module):
     hidden_dims: Sequence[int]
-    activations: Callable[[jnp.ndarray], jnp.ndarray] | str = nn.swish
+    # activations: Callable[[jnp.ndarray], jnp.ndarray] | str = nn.swish
+    activations: Union[Callable[[jnp.ndarray], jnp.ndarray], str] = nn.swish
     activate_final: bool = False
     use_layer_norm: bool = False
     dropout_rate: Optional[float] = None

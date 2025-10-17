@@ -52,6 +52,9 @@ class DefaultEnvConfig:
     REALSENSE_CAMERAS: Dict = {
         # "wrist_1": "130322274175",
         # "wrist_2": "127122270572",
+        "front": "215122255213",
+        "side": "947122060531",
+        "wrist": "123622270802",
     }
     IMAGE_CROP: dict[str, callable] = {}
     TARGET_POSE: np.ndarray = np.zeros((6,))
@@ -444,7 +447,9 @@ class FrankaEnv(gym.Env):
                 time.sleep(self.gripper_sleep)
             elif (pos >= 0.5) and (self.curr_gripper_pos < 0.85) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # open gripper
                 print_yellow("open.")
-                requests.post(self.url + "reset_gripper")
+                # requests.post(self.url + "reset_gripper")
+                requests.post(self.url + "activate_gripper")
+                requests.post(self.url + "open_gripper")
                 self.last_gripper_act = time.time()
                 time.sleep(self.gripper_sleep)
             else: 

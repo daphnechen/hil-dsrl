@@ -33,6 +33,10 @@ def main(_):
     # devices = jax.local_devices()
     devices = jax.local_devices()[1]
     sharding = jax.sharding.PositionalSharding(devices)
+
+    print(f"env.observation_space: {env.observation_space}")
+    print(f"env.action_space: {env.action_space}")
+    print(f"env.action_space.sample(): {env.action_space.sample()}")
     
     # Create buffer for positive transitions
     pos_buffer = ReplayBuffer(
@@ -49,7 +53,8 @@ def main(_):
         include_label=True,
     )
 
-    success_paths = glob.glob(os.path.join(os.getcwd(), "classifier_data", "*success*.pkl"))
+    success_paths = glob.glob(os.path.join("/home/daphne/Desktop/jax-hitl-hil-serl", "classifier_data", "*success*.pkl"))
+    print(f"success_paths: {success_paths}")
     for path in success_paths:
         success_data = pkl.load(open(path, "rb"))
         train_success_data_len = int(.9*len(success_data))
@@ -86,6 +91,7 @@ def main(_):
         include_label=True,
     )
     failure_paths = glob.glob(os.path.join(os.getcwd(), "classifier_data", "*failure*.pkl"))
+    print(f"failure_paths: {failure_paths}")
     for path in failure_paths:
         failure_data = pkl.load(
             open(path, "rb")
@@ -116,6 +122,8 @@ def main(_):
     pos_sample = next(pos_iterator)
     neg_sample = next(neg_iterator)
     sample = concat_batches(pos_sample, neg_sample, axis=0)
+    
+    #import pdb; pdb.set_trace()
 
     rng, key = jax.random.split(rng)
     classifier = create_classifier(key, 
@@ -176,7 +184,7 @@ def main(_):
         )
 
     checkpoints.save_checkpoint(
-        os.path.join(os.getcwd(), "classifier_ckpt/"),
+        os.path.join(os.getcwd(), "classifier_ckpt_debug/"),
         classifier,
         step=FLAGS.num_epochs,
         overwrite=True,

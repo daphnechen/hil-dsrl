@@ -91,7 +91,9 @@ class ReplayBuffer(Dataset):
         def enqueue(n):
             for _ in range(n):
                 data = self.sample(**sample_args)
-                queue.append(jax.device_put(data, device=device))
+                # import ipdb; ipdb.set_trace()
+                # queue.append(jax.device_put(data, device=device))
+                queue.append(jax.device_put(data))
 
         enqueue(queue_size)
         while queue:

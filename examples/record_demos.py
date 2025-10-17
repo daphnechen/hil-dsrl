@@ -18,7 +18,8 @@ flags.DEFINE_integer("successes_needed", 20, "Number of successful demos to coll
 def main(_):
     assert FLAGS.exp_name in CONFIG_MAPPING, 'Experiment folder not found.'
     config = CONFIG_MAPPING[FLAGS.exp_name]()
-    env = config.get_environment(fake_env=False, save_video=False, classifier=True, state_based=True)
+    # env = config.get_environment(fake_env=False, save_video=False, classifier=True, state_based=True)
+    env = config.get_environment(fake_env=False, save_video=False, classifier=True)
     if not os.path.exists("./demo_data"):
         os.makedirs("./demo_data")
     uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

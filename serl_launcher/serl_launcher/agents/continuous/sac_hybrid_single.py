@@ -266,7 +266,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "rewards": batch["rewards"].mean(),
         }
 
-        if pref_batch is not None and "cl" in self.config and self.config["cl"]["enabled"]:
+        if pref_batch is not None and "cl" in self.config and self.config.get("cl", {}).get("enabled", False): # self.config["cl"]["enabled"]:
             rngs = jax.random.split(rng, 7)
             rng = rngs[0]
 
@@ -435,7 +435,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "grasp_rewards": grasp_rewards.mean(),
         }
 
-        if pref_batch is not None and "cl" in self.config and self.config["cl"]["enabled"]:
+        if pref_batch is not None and "cl" in self.config and self.config.get("cl", {}).get("enabled", False): # self.config["cl"]["enabled"]:
             rng, state_key = jax.random.split(rng)
 
             o_pre = pref_batch["pre_obs"]
@@ -608,7 +608,8 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         return temperature_loss, {"temperature_loss": temperature_loss}
 
     def log_alpha_state_loss_fn(self, pref_batch, params: Params, rng: PRNGKey):
-        if not ("cl" in self.config and self.config["cl"]["enabled"] and pref_batch):
+        if not ("cl" in self.config and self.config.get("cl", {}).get("enabled", False) and pref_batch):
+        # if not ("cl" in self.config and self.config["cl"]["enabled"] and pref_batch):
             return 0.0, {}
 
         rng, state_key = jax.random.split(rng)
@@ -648,7 +649,8 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         return log_alpha_loss, info
 
     def log_alpha_gripper_state_loss_fn(self, pref_batch, params: Params, rng: PRNGKey):
-        if not ("cl" in self.config and self.config["cl"]["enabled"] and pref_batch):
+        if not ("cl" in self.config and self.config.get("cl", {}).get("enabled", False) and pref_batch):
+        # if not ("cl" in self.config and self.config["cl"]["enabled"] and pref_batch):
             return 0.0, {}
 
         rng, state_key = jax.random.split(rng)
@@ -698,7 +700,8 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "temperature": partial(self.temperature_loss_fn, batch),
         }
 
-        if "cl" in self.config and self.config["cl"]["enabled"]:
+        # if "cl" in self.config and self.config["cl"]["enabled"]:
+        if "cl" in self.config and self.config["cl"].get("enabled", False):
             print("Doing constraint update.")
             loss_dict["log_alpha_state"] = partial(self.log_alpha_state_loss_fn, pref_batch)
             loss_dict["log_alpha_gripper_state"] = partial(self.log_alpha_gripper_state_loss_fn, pref_batch)
@@ -752,10 +755,12 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         assert networks_to_update.issubset(
             loss_fns.keys()
         ), f"{networks_to_update} not within {loss_fns.keys()}"
-        if self.config["cl"]["enabled"] and self.config["cl"]["soft"]:
+        # if self.config["cl"]["enabled"] and self.config["cl"]["soft"]:
+        if self.config.get("cl", {}).get("enabled", False) and self.config.get("cl", {}).get("soft", False):
             assert "log_alpha_state" not in networks_to_update
             assert "log_alpha_gripper_state" not in networks_to_update
-        elif self.config["cl"]["enabled"] and not self.config["cl"]["soft"]:
+        # elif self.config["cl"]["enabled"] and not self.config["cl"]["soft"]:
+        elif self.config.get("cl", {}).get("enabled", False) and not self.config.get("cl", {}).get("soft", False):
             assert "log_alpha_state" in networks_to_update
             assert "log_alpha_gripper_state" in networks_to_update
         
@@ -826,7 +831,8 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
     @jax.jit
     def update_bc(self, bc_batch, pmap_axis = None):
         loss_fn_keys = ["critic", "grasp_critic", "actor", "temperature"]
-        if self.config["cl"]["enabled"]:
+        # if self.config["cl"]["enabled"]:
+        if self.config.get("cl", {}).get("enabled", False):
             loss_fn_keys += ["log_alpha_state", "log_alpha_gripper_state"]
         loss_fns = {k: lambda params, rng: (0.0, {}) for k in loss_fn_keys}
         loss_fns["actor"] = partial(self.loss_bc, bc_batch)

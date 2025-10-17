@@ -89,3 +89,18 @@ examples/experiments/**/debug_*/
 examples/experiments/**/*.pkl
 examples/experiments/**/checkpoint_*
 **/*.out
+
+# Checkpoints and data
+classifier_ckpt/
+classifier_ckpt_cube/
+classifier_data/
+
+# vscode workspace configs 
+*.code-workspace
+
+# More checkpoints
+rlpd_cube/
+rlpd_cube_old/
+rlpd_cube_old2/
+rlpd_cube_old3/
+rlpd_furniture_bench/
