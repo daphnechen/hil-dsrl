@@ -162,7 +162,8 @@ class FrankaEnv(gym.Env):
         if fake_env:
             return
 
-        self.cap = None
+        # self.cap = None
+        self.cap = {}  # Initialize cap as empty dict first
         self.init_cameras(config.REALSENSE_CAMERAS)
         if self.display_image:
             self.img_queue = queue.Queue()

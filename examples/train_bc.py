@@ -39,8 +39,8 @@ flags.DEFINE_boolean(
 )  # debug mode will disable wandb logging
 
 
-devices = jax.local_devices()
-num_devices = len(devices)
+devices = jax.local_devices()[1:2]  # Use only GPU 1 for BC training
+num_devices = 1
 sharding = jax.sharding.PositionalSharding(devices)
 
 
@@ -103,7 +103,7 @@ def train(
             "batch_size": config.batch_size,
             "pack_obs_and_next_obs": False,
         },
-        device=sharding.replicate(),
+        device=None,  # Use default device placement for single GPU
     )
     
     # Pretrain BC policy to get started
@@ -147,10 +147,9 @@ def main(_):
         encoder_type=config.encoder_type,
     )
 
-    # replicate agent across devices
-    # need the jnp.array to avoid a bug where device_put doesn't recognize primitives
+    # Put agent on device (single GPU, no replication needed for BC)
     bc_agent: BCAgent = jax.device_put(
-        jax.tree_map(jnp.array, bc_agent), sharding.replicate()
+        jax.tree_map(jnp.array, bc_agent)
     )
 
     if not eval_mode:
@@ -195,7 +194,7 @@ def main(_):
 
     else:
         rng = jax.random.PRNGKey(FLAGS.seed)
-        sampling_rng = jax.device_put(rng, sharding.replicate())
+        sampling_rng = jax.device_put(rng)
 
         bc_ckpt = checkpoints.restore_checkpoint(
             FLAGS.bc_checkpoint_path,
