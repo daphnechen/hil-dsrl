@@ -43,9 +43,17 @@ flags.DEFINE_boolean(
 )  # debug mode will disable wandb logging
 
 
-devices = jax.local_devices()[1:2]  # Use only GPU 1 for BC training
-num_devices = 1
-sharding = jax.sharding.PositionalSharding(devices)
+try:
+    devices = jax.local_devices()[1:2]  # Use only GPU 1 for BC training
+    num_devices = len(devices) if devices else 1
+    if devices:
+        sharding = jax.sharding.PositionalSharding(devices)
+    else:
+        sharding = None
+except (IndexError, ValueError):
+    devices = jax.local_devices()[:1]  # Fallback to first device (CPU)
+    num_devices = 1
+    sharding = None
 
 
 def print_green(x):
@@ -77,6 +85,9 @@ def eval(
 
             actions = bc_agent.sample_actions(observations=obs, seed=key)
             actions = np.asarray(jax.device_get(actions))
+            # Remove batch dimension if present (shape: (1, 7) -> (7,))
+            if actions.ndim == 2 and actions.shape[0] == 1:
+                actions = actions[0]
             next_obs, reward, done, truncated, info = env.step(actions)
             obs = next_obs
             if done:
