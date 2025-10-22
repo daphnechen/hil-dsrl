@@ -83,7 +83,9 @@ def eval(
         while not done:
             rng, key = jax.random.split(sampling_rng)
 
-            actions = bc_agent.sample_actions(observations=obs, seed=key)
+            # Move observations to GPU/device
+            obs_on_device = jax.tree_map(lambda x: jax.device_put(x), obs)
+            actions = bc_agent.sample_actions(observations=obs_on_device, seed=key)
             actions = np.asarray(jax.device_get(actions))
             # Remove batch dimension if present (shape: (1, 7) -> (7,))
             if actions.ndim == 2 and actions.shape[0] == 1:

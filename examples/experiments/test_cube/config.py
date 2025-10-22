@@ -19,12 +19,12 @@ class EnvConfig(DefaultEnvConfig):
     SERVER_URL = "http://127.0.0.1:5000/"  # Update to your robot server URL
 
     REALSENSE_CAMERAS = {
-        # "front": {
-        #     "camera_type": "rs", # Realsense
-        #     "serial_number": "032522250211",
-        #     "dim": (640, 480), # (1280, 720),
-        #     "exposure": 40000,
-        # },
+        "front": {
+            "camera_type": "rs", # Realsense
+            "serial_number": "032522250211",
+            "dim": (640, 480), # (1280, 720),
+            "exposure": 40000,
+        },
         "side": {
             "camera_type": "rs", # Realsense
             "serial_number": "947122060531",
@@ -43,7 +43,7 @@ class EnvConfig(DefaultEnvConfig):
     #     "wrist": lambda img: img[50:550, 150:1200],  # TODO: Adjust after viewing camera feed
     # }
     IMAGE_CROP = {
-        # "front": lambda img: img[180:430, 150:550],  
+        "front": lambda img: img[180:430, 150:550],  
         "side": lambda img: img[70:470, 450:1150], 
     }
 
@@ -91,8 +91,8 @@ class EnvConfig(DefaultEnvConfig):
 
 
 class TrainConfig(DefaultTrainingConfig):
-    image_keys = ["side", "wrist"] # use?
-    classifier_keys = ["side", "wrist"] # use?
+    image_keys = ["front", "side", "wrist"] # use?
+    classifier_keys = ["front", "side", "wrist"] # use?
     proprio_keys = ["tcp_pose", "tcp_vel", "tcp_force", "tcp_torque", "gripper_pose"]
 
     # For BC training
