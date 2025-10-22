@@ -143,6 +143,24 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
 
         return self.replace(state=new_state), info
 
+    @partial(jax.jit, static_argnames=("num_inference_steps",))
+    def _forward_pass_jitted(
+        self,
+        observations: jnp.ndarray,
+        noisy_actions: jnp.ndarray,
+        timestep: jnp.ndarray,
+        num_inference_steps: int,
+    ) -> jnp.ndarray:
+        """JIT-compiled forward pass for noise prediction."""
+        return self.state.apply_fn(
+            {"params": self.state.params},
+            observations=observations,
+            noisy_actions=noisy_actions,
+            timesteps=timestep,
+            train=False,
+            name="actor"
+        )
+
     def sample_actions(
         self,
         observations: np.ndarray,
@@ -171,27 +189,26 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
         rng = seed if seed is not None else jax.random.PRNGKey(0)
         actions = jax.random.normal(rng, (batch_size, action_horizon, action_dim))
 
-        # DDIM denoising loop - not JIT compiled to allow dynamic indexing
+        # DDIM denoising loop
         timesteps = self.ddim_sampler.timesteps
         alphas_cumprod = self.noise_schedule.alphas_cumprod
+        num_steps = len(timesteps)
 
         for i, t in enumerate(timesteps):
-            # Predict noise
-            predicted_noise = self.state.apply_fn(
-                {"params": self.state.params},
+            # JIT-compiled forward pass
+            predicted_noise = self._forward_pass_jitted(
                 observations=observations,
                 noisy_actions=actions,
-                timesteps=jnp.full((batch_size,), t, dtype=jnp.int32),
-                train=False,
-                name="actor"
+                timestep=jnp.full((batch_size,), t, dtype=jnp.int32),
+                num_inference_steps=num_steps,
             )
 
             # DDIM step - inline to avoid dynamic indexing issues
-            alpha_prod_t = alphas_cumprod[t]
+            alpha_prod_t = alphas_cumprod[int(t)]
 
             # Get next timestep's alpha
             if i + 1 < len(timesteps):
-                alpha_prod_t_prev = alphas_cumprod[timesteps[i + 1]]
+                alpha_prod_t_prev = alphas_cumprod[int(timesteps[i + 1])]
             else:
                 alpha_prod_t_prev = jnp.ones_like(alpha_prod_t)
 
