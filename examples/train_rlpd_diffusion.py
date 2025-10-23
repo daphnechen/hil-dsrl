@@ -192,8 +192,11 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                     masks=1.0 - done,
                     dones=done,
                 )
+                # Add grasp_penalty if using learned gripper setup
                 if 'grasp_penalty' in info:
-                    transition['grasp_penalty']= info['grasp_penalty']
+                    transition['grasp_penalty'] = info['grasp_penalty']
+                else:
+                    transition['grasp_penalty'] = 0.0
                 data_store.insert(transition)
                 transitions.append(copy.deepcopy(transition))
                 if already_intervened:
