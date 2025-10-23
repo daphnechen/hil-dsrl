@@ -148,6 +148,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     timer = Timer()
     print_green("Actor is starting...")
     while True:
+        timer.tick("total")
         obs, _ = env.reset()
         done = False
         from_time = time.time()
@@ -257,6 +258,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 transitions_full_trajs = []
             with open(
                 os.path.join(demo_buffer_path, f"transitions_{step}.pkl"),
+                "wb"
             ) as f:
                 fp = os.path.join(demo_buffer_path, f"transitions_{step}.pkl")
                 print(f"Dumping {len(demo_transitions_full_trajs)} expert transitions out of {len(demo_transitions)} to {fp} !!!")
@@ -274,6 +276,11 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
         if step % config.log_period == 0:
             stats = {"timer": timer.get_average_times()}
             client.request("send-stats", stats)
+
+        # Exit training if we've reached max steps
+        if step >= config.max_steps:
+            print_green(f"Training complete! Reached {step} steps (max: {config.max_steps})")
+            break
 
 
 ##############################################################################
@@ -353,6 +360,7 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
             batch = concat_batches(
                 demo_buffer.sample(int(config.batch_size * config.demo_ratio)),
                 replay_buffer.sample(int(config.batch_size * (1 - config.demo_ratio))),
+                axis=0,
             )
 
         with timer.context("update_networks"):
