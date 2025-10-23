@@ -95,18 +95,24 @@ class TrainConfig(DefaultTrainingConfig):
     classifier_keys = ["front", "side", "wrist"] # use?
     proprio_keys = ["tcp_pose", "tcp_vel", "tcp_force", "tcp_torque", "gripper_pose"]
 
-    # For BC training
+    # For BC/RLPD training
     batch_size = 256
-    max_steps = 50000  # BC doesn't need as many steps
+    max_steps = 50000  # RLPD training steps (expected convergence ~40-50k)
     random_steps = 0
     training_starts = 200
     checkpoint_period = 2000
     buffer_period = 1000
+    steps_per_update = 50  # Updates per online rollout step
+    demo_ratio = 0.5  # 50% demos, 50% online data for RLPD
+    discount = 0.97  # Discount factor for RL
+    log_period = 10  # Logging frequency
+    replay_buffer_capacity = 200000  # Replay buffer size
 
     encoder_type = "resnet-pretrained"
     setup_mode = "single-arm-learned-gripper"  # Learn gripper open/close
 
     pretraining_steps = 5000  # Number of BC pretraining steps on demos
+    reward_scale = 1.0  # Scale factor for rewards (for RLPD training)
 
     def get_environment(self, fake_env=False, save_video=False, classifier=False):
         from franka_env.envs.wrappers import HumanClassifierWrapper
