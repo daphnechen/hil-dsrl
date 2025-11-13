@@ -147,6 +147,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     pbar = tqdm.tqdm(total=config.max_steps, initial=0, desc="actor", position=1, leave=True)
     timer = Timer()
     print_green("Actor is starting...")
+    interventions = []  # Initialize interventions list
     while True:
         timer.tick("total")
         obs, _ = env.reset()
@@ -159,6 +160,8 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
         already_intervened = False
         transitions = []
         demo_transitions = []
+        transitions_full_trajs = []
+        demo_transitions_full_trajs = []
 
         while not done and step < config.max_steps:
             with timer.context("inference"):
