@@ -242,7 +242,7 @@ def main(_):
         breakpoint()
 
     # Calculate and plot ROC after training
-    # calculate_logits_and_plot_roc(eval_pos_buffer, eval_neg_buffer, classifier, config)
+    calculate_logits_and_plot_roc(eval_pos_buffer, eval_neg_buffer, classifier, config)
     
 
 if __name__ == "__main__":

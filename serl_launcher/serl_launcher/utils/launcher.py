@@ -19,10 +19,10 @@ from serl_launcher.vision.data_augmentations import batched_random_crop
 
 
 def make_bc_agent(
-    seed, 
-    sample_obs, 
-    sample_action, 
-    image_keys=("image",), 
+    seed,
+    sample_obs,
+    sample_action,
+    image_keys=("image",),
     encoder_type="resnet-pretrained"
 ):
     return BCAgent.create(
@@ -155,10 +155,11 @@ def make_sac_pixel_agent_hybrid_single_arm(
     cl_config: dict = {},
     has_image: bool = True,
     use_bc_loss: bool = False,
+    bc_timestep_decay: float = 0.0,
 ):
     if enable_cl:
         assert soft_cl is not None and isinstance(soft_cl, bool)
-    
+
     agent = SACAgentHybridSingleArm.create_pixels(
         jax.random.PRNGKey(seed),
         sample_obs,
@@ -204,6 +205,7 @@ def make_sac_pixel_agent_hybrid_single_arm(
         cl=cl_config,
         has_image=has_image,
         use_bc_loss=use_bc_loss,
+        bc_timestep_decay=bc_timestep_decay,
     )
     return agent
 
@@ -267,7 +269,7 @@ def linear_schedule(step):
     linear_step = jnp.minimum(step, decay_steps)
     decayed_value = init_value + (end_value - init_value) * (linear_step / decay_steps)
     return decayed_value
-    
+
 def make_batch_augmentation_func(image_keys) -> callable:
 
     def data_augmentation_fn(rng, observations):
@@ -280,7 +282,7 @@ def make_batch_augmentation_func(image_keys) -> callable:
                 }
             )
         return observations
-    
+
     def augment_batch(batch: Batch, rng: PRNGKey) -> Batch:
         rng, obs_rng, next_obs_rng = jax.random.split(rng, 3)
         obs = data_augmentation_fn(obs_rng, batch["observations"])
@@ -292,7 +294,7 @@ def make_batch_augmentation_func(image_keys) -> callable:
             }
         )
         return batch
-    
+
     return augment_batch
 
 

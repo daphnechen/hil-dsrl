@@ -25,6 +25,7 @@ from serl_launcher.agents.continuous.sac_hybrid_dual import SACAgentHybridDualAr
 from serl_launcher.utils.timer_utils import Timer
 from serl_launcher.utils.train_utils import concat_batches
 from serl_launcher.utils.tools import ImageDisplayer, q_image
+import franka_sim.envs.utils as utils
 
 from agentlace.trainer import TrainerServer, TrainerClient
 from agentlace.data.data_store import QueuedDataStore
@@ -100,6 +101,9 @@ def on_press(key):
         elif str(key) == "'r'":
             print_yellow("reset")
             requests.post("http://localhost:5000/reset_gripper")
+        elif str(key) == "'o'":
+            print_yellow("open")
+            requests.post("http://localhost:5000/open_gripper")
         elif str(key) == "'t'":
             print_yellow("close gripper for reset")
             requests.post("http://localhost:5000/close_gripper")
@@ -110,7 +114,7 @@ def on_press(key):
         print("error")
         pass
 
-def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_store = None, bc_data_store = None):
+def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_store = None, bc_data_store = None, synchronization: bool = False):
     """
     This is the actor loop, which runs when "--actor" is set to True.
     """
@@ -146,7 +150,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
             while not done:
                 sampling_rng, key = jax.random.split(sampling_rng)
                 actions = agent.sample_actions(
-                    observations=jax.device_put(obs),
+                    observations=utils.device_put(obs),
                     argmax=True,
                     seed=key
                 )
@@ -261,7 +265,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
             else:
                 sampling_rng, key = jax.random.split(sampling_rng)
                 actions = agent.sample_actions(
-                    observations=jax.device_put(obs),
+                    observations=utils.device_put(obs),
                     seed=key,
                     argmax=False,
                 )
@@ -269,8 +273,8 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
 
         # Step environment
         if FLAGS.show_q_values:
-            q_value = float(np.asarray(jax.device_get(agent.forward_critic(jax.device_put(obs), actions[:-1], rng=key).min())))
-            q_value_grasp = float(np.asarray(jax.device_get(agent.forward_grasp_critic(jax.device_put(obs), rng=key)[int(actions[-1] + 1)])))
+            q_value = float(np.asarray(jax.device_get(agent.forward_critic(utils.device_put(obs), actions[:-1], rng=key).min())))
+            q_value_grasp = float(np.asarray(jax.device_get(agent.forward_grasp_critic(utils.device_put(obs), rng=key)[int(actions[-1] + 1)])))
         with timer.context("step_env"):
 
             next_obs, reward, done, truncated, info = env.step(actions)
@@ -424,6 +428,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
                 running_return = 0.0
                 intervention_count = 0
                 intervention_steps = 0
+                print_green(f"steps per second: {cur_steps / (time.time() - from_time)}")
                 cur_steps = 0
 
                 already_intervened = False
@@ -436,9 +441,9 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
                 time.sleep(7.0)
                 obs, _ = env.reset()
                 # For synchronizing learner and actor...
-                if step > learner_step * 1 + 200:
+                if synchronization and step > learner_step * 10 + 50:
                     print("Stopped actor")
-                    while step > learner_step * 1 + 200:
+                    while step > learner_step * 10 + 50:
                         time.sleep(0.5)
                     print("Released actor")
                 print("reset end")
@@ -491,6 +496,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
             and config.checkpoint_period
             and step % config.checkpoint_period == 0
         ):
+            print_green(f"Dumping checkpoint {step} to {os.path.abspath(FLAGS.checkpoint_path)}")
             checkpoints.save_checkpoint(
                 os.path.abspath(FLAGS.checkpoint_path), agent.state, step=step, keep=100
             )
@@ -510,7 +516,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
 ##############################################################################
 
 
-def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, preference_buffer = None, bc_buffer = None, wandb_logger=None):
+def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, preference_buffer = None, bc_buffer = None, wandb_logger=None, synchronization: bool = False):
     """
     The learner loop, which runs when "--learner" is set to True.
     """
@@ -632,10 +638,11 @@ def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, pre
     
     
     '''
+    fps_time = time.time()
     for step in tqdm.tqdm(
         range(start_step + config.pretraining_steps, config.max_steps + config.pretraining_steps), dynamic_ncols=True, desc="learner"
     ):
-        if step - config.pretraining_steps > len(replay_buffer) * 1 + 1 + 300:
+        if synchronization and step - config.pretraining_steps > len(replay_buffer) * 1 + 1 + 300:
             while step - config.pretraining_steps > len(replay_buffer) * 1 + 1 + 300:
                 time.sleep(0.5)
             print(f"Training for another {(len(replay_buffer) * 1 + 1 + 300) - (step - config.pretraining_steps) + 1} steps...")
@@ -677,6 +684,8 @@ def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, pre
 
         # publish the updated network
         if step > 0 and step % (config.steps_per_update) == 0:
+            print_green(f"Steps per second: {(config.steps_per_update) / (time.time() - fps_time)}")
+            fps_time = time.time()
             agent = jax.block_until_ready(agent)
             server.publish_network(agent.state.params)
             server.publish_network({'step': step - config.pretraining_steps})
@@ -768,7 +777,7 @@ def main(_):
 
     # replicate agent across devices
     # need the jnp.array to avoid a bug where device_put doesn't recognize primitives
-    agent = jax.device_put(
+    agent = utils.device_put(
         jax.tree_util.tree_map(jnp.array, agent), sharding.replicate()
     )
 
@@ -835,7 +844,7 @@ def main(_):
         return bc_buffer
 
     if FLAGS.learner:
-        sampling_rng = jax.device_put(sampling_rng, device=sharding.replicate())
+        sampling_rng = utils.device_put(sampling_rng, device=sharding.replicate())
         replay_buffer, wandb_logger = create_replay_buffer_and_wandb_logger()
         demo_buffer = create_demo_buffer()
         preference_buffer = create_preference_buffer()
@@ -936,7 +945,7 @@ def main(_):
         )
 
     elif FLAGS.actor:
-        sampling_rng = jax.device_put(sampling_rng, sharding.replicate())
+        sampling_rng = utils.device_put(sampling_rng, sharding.replicate())
         data_store = QueuedDataStore(10000)  # the queue size on the actor
         intvn_data_store = QueuedDataStore(10000)
         pref_data_store = QueuedDataStore(10000) if FLAGS.method in ["cl", "soft_cl"] else None
@@ -955,7 +964,8 @@ def main(_):
             env,
             sampling_rng,
             pref_data_store=pref_data_store,
-            bc_data_store=bc_data_store
+            bc_data_store=bc_data_store,
+            synchronization=True
         )
 
     else:

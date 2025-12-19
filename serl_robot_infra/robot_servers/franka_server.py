@@ -46,6 +46,8 @@ class FrankaServer:
         self.robot_ip = robot_ip
         self.ros_pkg_name = ros_pkg_name
         self.reset_joint_target = reset_joint_target
+        print(self.reset_joint_target)
+        print("=====")
         self.gripper_type = gripper_type
 
         self.eepub = rospy.Publisher(

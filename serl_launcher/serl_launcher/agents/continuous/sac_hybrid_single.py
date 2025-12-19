@@ -1,3 +1,121 @@
+# Traceback (most recent call last):
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/../../../train_steer.py", line 890, in <module>
+#     app.run(main)
+#   File "/home/daphne/miniconda3/envs/hilserl2/lib/python3.9/site-packages/absl/app.py", line 316, in run
+#     _run_main(main, args)
+#   File "/home/daphne/miniconda3/envs/hilserl2/lib/python3.9/site-packages/absl/app.py", line 261, in _run_main
+#     sys.exit(main(argv))
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/../../../train_steer.py", line 857, in main
+#     learner(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/../../../train_steer.py", line 630, in learner
+#     agent, update_info = agent.update(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/agents/continuous/sac_hybrid_single.py", line 457, in update
+#     new_state, info = self.state.apply_loss_fns(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/common/common.py", line 204, in apply_loss_fns
+#     grads_and_aux = jax.tree_util.tree_map(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/common/common.py", line 205, in <lambda>
+#     lambda loss_fn, rng: jax.grad(loss_fn, has_aux=has_aux)(self.params, rng),
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/agents/continuous/sac_hybrid_single.py", line 336, in policy_loss_fn
+#     timestep = jnp.asarray(bc_batch["timestep"], dtype=jnp.float32) # [BATCH_SIZE]
+#   File "/home/daphne/miniconda3/envs/hilserl2/lib/python3.9/site-packages/flax/core/frozen_dict.py", line 69, in __getitem__
+#     v = self._dict[key]
+# KeyError: 'timestep'
+# jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+
+# The above exception was the direct cause of the following exception:
+
+# Traceback (most recent call last):
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/../../../train_steer.py", line 890, in <module>
+#     app.run(main)
+#   File "/home/daphne/miniconda3/envs/hilserl2/lib/python3.9/site-packages/absl/app.py", line 316, in run
+#     _run_main(main, args)
+#   File "/home/daphne/miniconda3/envs/hilserl2/lib/python3.9/site-packages/absl/app.py", line 261, in _run_main
+#     sys.exit(main(argv))
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/../../../train_steer.py", line 857, in main
+#     learner(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/../../../train_steer.py", line 630, in learner
+#     agent, update_info = agent.update(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/agents/continuous/sac_hybrid_single.py", line 457, in update
+#     new_state, info = self.state.apply_loss_fns(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/common/common.py", line 204, in apply_loss_fns
+#     grads_and_aux = jax.tree_util.tree_map(
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/common/common.py", line 205, in <lambda>
+#     lambda loss_fn, rng: jax.grad(loss_fn, has_aux=has_aux)(self.params, rng),
+#   File "/home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/agents/continuous/sac_hybrid_single.py", line 336, in policy_loss_fn
+#     timestep = jnp.asarray(bc_batch["timestep"], dtype=jnp.float32) # [BATCH_SIZE]
+#   File "/home/daphne/miniconda3/envs/hilserl2/lib/python3.9/site-packages/flax/core/frozen_dict.py", line 69, in __getitem__
+#     v = self._dict[key]
+# KeyError: 'timestep'
+
+
+
+
+
+
+# (hilserl2) daphne @ joeljang ➜  iclr_constrained git:(main) ✗  source run_cl_learner.sh
+# WARNING:absl:Tensorflow library not found, tensorflow.io.gfile operations will use native shim calls. GCS paths (i.e. 'gs://...') cannot be accessed.
+# WARNING: You have not setup the ZED cameras, and currently cannot use them
+#  Using STEER (BC on interventions with optional decay + RL).
+#    BC timestep decay: 0.0
+# Saving videos!
+# The ResNet-10 weights already exist at '/home/daphne/.serl/resnet10_params.pkl'.
+# Loaded 5.418792M parameters from ResNet-10 pretrained on ImageNet-1K
+# replaced conv_init in encoder_front
+# replaced norm_init in encoder_front
+# replaced ResNetBlock_0 in encoder_front
+# replaced ResNetBlock_1 in encoder_front
+# replaced ResNetBlock_2 in encoder_front
+# replaced ResNetBlock_3 in encoder_front
+# I1117 22:03:09.833108 136920117135168 checkpoints.py:1111] Restoring orbax checkpoint from /home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/classifier_ckpt/checkpoint_150
+# I1117 22:03:09.833309 136920117135168 abstract_checkpointer.py:35] orbax-checkpoint version: 0.6.4
+# I1117 22:03:09.836092 136920117135168 checkpointer.py:237] Restoring checkpoint from /home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/classifier_ckpt/checkpoint_150.
+# W1117 22:03:09.962724 136920117135168 transform_utils.py:230] The transformations API will eventually be replaced by an upgraded design. The current API will not be removed until this point, but it will no longer be actively worked on.
+# I1117 22:03:09.968992 136920117135168 checkpointer.py:240] Finished restoring checkpoint from /home/daphne/Desktop/jax-hitl-hil-serl/examples/experiments/cube_reach3/iclr_constrained/classifier_ckpt/checkpoint_150.
+# I1117 22:03:09.969104 136920117135168 utils.py:240] [process=0][thread=MainThread] Skipping global process sync, barrier name: Checkpointer:restore.checkpoint_150
+# I1117 22:03:09.973938 136920117135168 _schedule.py:129] A polynomial schedule was set with a non-positive `transition_steps` value; this results in a constant schedule with value `init_value`.
+# I1117 22:03:09.974215 136920117135168 _schedule.py:129] A polynomial schedule was set with a non-positive `transition_steps` value; this results in a constant schedule with value `init_value`.
+# I1117 22:03:09.974323 136920117135168 _schedule.py:129] A polynomial schedule was set with a non-positive `transition_steps` value; this results in a constant schedule with value `init_value`.
+# I1117 22:03:09.974415 136920117135168 _schedule.py:129] A polynomial schedule was set with a non-positive `transition_steps` value; this results in a constant schedule with value `init_value`.
+# The ResNet-10 weights already exist at '/home/daphne/.serl/resnet10_params.pkl'.
+# Loaded 5.418792M parameters from ResNet-10 pretrained on ImageNet-1K
+# replaced conv_init in pretrained_encoder
+# replaced norm_init in pretrained_encoder
+# replaced ResNetBlock_0 in pretrained_encoder
+# replaced ResNetBlock_1 in pretrained_encoder
+# replaced ResNetBlock_2 in pretrained_encoder
+# replaced ResNetBlock_3 in pretrained_encoder
+# entity: null
+# exp_descriptor: cube_reach3
+# experiment_id: cube_reach3_20251117_220314
+# group: null
+# project: hil-serl-cubereach2
+# tag: cube_reach3
+# unique_identifier: '20251117_220314'
+
+# wandb: Currently logged in as: daphc (social-rl) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+# wandb: Tracking run with wandb version 0.19.11
+# wandb: Run data is saved locally in /tmp/tmp3q8tt8sz/wandb/run-20251117_220314-cube_reach3_20251117_220314
+# wandb: Run `wandb offline` to turn off syncing.
+# wandb: Syncing run cube_reach3_20251117_220314
+# wandb: ⭐️ View project at https://wandb.ai/social-rl/hil-serl-cubereach2
+# wandb: 🚀 View run at https://wandb.ai/social-rl/hil-serl-cubereach2/runs/cube_reach3_20251117_220314
+#  demo buffer size: 1178
+#  demo count: 20
+#  bc buffer size: 1178
+#  starting learner loop
+# Filling up replay buffer: 236it [01:01,  3.85it/s]
+#  sent initial network to actor
+# learner:   0%|                                                                | 0/1000000 [00:00<?, ?it/s] Doing BC update.
+#  Doing BC update.
+# > /home/daphne/Desktop/jax-hitl-hil-serl/serl_launcher/serl_launcher/agents/continuous/sac_hybrid_single.py(386)policy_loss_fn()
+# -> timestep = jnp.asarray(bc_batch["timestep"], dtype=jnp.float32) # [BATCH_SIZE]
+# (Pdb) p bc_batch.keys()
+# frozen_dict_keys(['actions', 'dones', 'grasp_penalty', 'masks', 'next_observations', 'observations', 'rewards'])
+# (Pdb)
+
+
+
+
 from functools import partial
 from typing import Iterable, Optional, Tuple, FrozenSet
 
@@ -41,7 +159,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
     """
 
     state: JaxRLTrainState
-    bc_coeff: jnp.array
     config: dict = nonpytree_field()
 
     def forward_critic(
@@ -116,35 +233,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         return self.forward_grasp_critic(
             observations, rng=rng, grad_params=self.state.target_params
         )
-
-    def forward_log_alpha(
-        self,
-        o_pre,
-        o_post,
-        grad_params: Optional[Params] = None,
-    ) -> jax.Array:
-        log_alpha_state = self.state.apply_fn(
-            {"params": grad_params or self.state.params},
-            o_pre,
-            o_post,
-            name="log_alpha_state"
-        )
-        return log_alpha_state
-
-    def forward_log_alpha_gripper(
-        self,
-        o_pre,
-        o_post,
-        grad_params: Optional[Params] = None,
-    ) -> jax.Array:
-        log_alpha_gripper_state = self.state.apply_fn(
-            {"params": grad_params or self.state.params},
-            o_pre,
-            o_post,
-            name="log_alpha_gripper_state"
-        )
-        return log_alpha_gripper_state
-
     def forward_policy( # type: ignore
         self,
         observations: Data,
@@ -205,7 +293,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
 
         return next_actions, next_actions_log_probs
 
-    def critic_loss_fn(self, batch, pref_batch, params: Params, rng: PRNGKey):
+    def critic_loss_fn(self, batch, params: Params, rng: PRNGKey):
         """classes that inherit this class can change this function"""
         batch_size = batch["rewards"].shape[0]
         # Extract continuous actions for critic
@@ -266,120 +354,10 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "rewards": batch["rewards"].mean(),
         }
 
-        if pref_batch is not None and "cl" in self.config and self.config["cl"]["enabled"]:
-            rngs = jax.random.split(rng, 7)
-            rng = rngs[0]
-
-            # Get Q-values for pre-intervention states
-            o_pre = pref_batch["pre_obs"]
-            o_post = pref_batch["post_obs"]
-
-            # Get actions for pre and post states
-            a_pre = self.forward_policy(o_pre, rng=rngs[1]).sample(seed=rngs[2])
-            a_post = self.forward_policy(o_post, rng=rngs[3]).sample(seed=rngs[4])
-
-            # Get Q-values for pre and post states
-            o_pre_qf = self.forward_critic(o_pre, a_pre, rng=rngs[5], grad_params=params)
-            o_post_qf = self.forward_critic(o_post, a_post, rng=rngs[6], grad_params=params)
-
-            if not self.config["cl"]["soft"]:
-                # Apply CL constraint: constraint satisfied if o_pre_qf * constraint_coeff - o_post_qf <= constraint_eps * max(abs(o_pre_qf), abs(o_post_qf))
-                constraint_coeff = jnp.array(self.config["cl"]["constraint_coeff"])
-                constraint_eps = jnp.array(self.config["cl"]["constraint_eps"])
-
-                # Calculate violation (if any)
-                qf_diff = jnp.where(
-                    constraint_coeff * o_pre_qf - o_post_qf <= constraint_eps * jnp.maximum(jnp.abs(o_pre_qf), jnp.abs(o_post_qf)),
-                    0.0,
-                    constraint_coeff * o_pre_qf - o_post_qf
-                )
-                # Calculate violation (if any)
-                qf_diff = jnp.where(
-                    constraint_coeff * o_pre_qf - o_post_qf <= constraint_eps * jnp.maximum(jnp.abs(o_pre_qf), jnp.abs(o_post_qf)),
-                    0.0,
-                    constraint_coeff * o_pre_qf - o_post_qf
-                )
-
-                # Apply Lagrange multiplier if available
-                # assert "log_alpha_state" in self.state.params, "log_alpha_state not found in params -- must be there to use CL"
-                # import pdb; pdb.set_trace()
-                log_alpha_state = self.forward_log_alpha(o_pre, o_post)
-                alpha_state = jnp.clip(jnp.exp(log_alpha_state), 0.0, 1e6)
-                dual_loss = jnp.multiply(alpha_state, qf_diff.T).mean()
-                critic_loss += dual_loss
-                # Apply Lagrange multiplier if available
-                # assert "log_alpha_state" in self.state.params, "log_alpha_state not found in params -- must be there to use CL"
-                # import pdb; pdb.set_trace()
-                log_alpha_state = self.forward_log_alpha(o_pre, o_post)
-                alpha_state = jnp.clip(jnp.exp(log_alpha_state), 0.0, 1e6)
-                dual_loss = jnp.multiply(alpha_state, qf_diff.T).mean()
-                critic_loss += dual_loss
-
-                info = info | {
-                    "dual_loss": dual_loss,
-                    "alpha_state": alpha_state.mean(),
-                    "qf_diff": qf_diff.mean(),
-                    "constraint_coeff": constraint_coeff,
-                    "constraint_epsilon": constraint_eps,
-                }
-            else:
-                constraint_coeff = jnp.array(self.config["cl"]["constraint_coeff"])
-                reward_coeff = jnp.array(self.config["cl"]["reward_coeff"])
-                
-                # Q(o_pre, pi(o_pre)) <= Q(o_post, pi(o_post))
-                state_losses = reward_coeff * (o_pre_qf - o_post_qf)
-                state_loss = jnp.where(state_losses < 0, 0.0, state_losses).mean()
-
-                info = info | {
-                    "state_loss": state_loss,
-                    "constraint_coeff": constraint_coeff,
-                    "reward_coeff": reward_coeff,
-                    "pre_qf": o_pre_qf.mean(),
-                    "post_qf": o_post_qf.mean(),
-                    "state_loss_percentage_satisfied": jnp.where(state_losses < 0, 1.0, 0.0).mean(),
-                    "pre_qf_percentage_negative": jnp.where(o_pre_qf < 0, 1.0, 0.0).mean(),
-                    "post_qf_percentage_negative": jnp.where(o_post_qf < 0, 1.0, 0.0).mean(),
-                }
-
-                # Q(o_pre, pi(o_pre)) >= gamma ** t * Q(o_post, pi(o_post))
-                if self.config["cl"]["enable_margin_constraint"]:
-                    coeff = jnp.power(self.config['discount'], pref_batch["t"])
-                    margin_losses = reward_coeff * (jnp.multiply(coeff, o_post_qf) - o_pre_qf)
-                    margin_loss = jnp.where(margin_losses < 0, 0.0, margin_losses).mean()
-                    state_loss += margin_loss
-
-                    info = info | {
-                        "margin_loss": margin_loss,
-                        "coeff": coeff.mean(),
-                        "discount": jnp.array(self.config['discount']),
-                        "t": pref_batch["t"].mean(),
-                        "margin_loss_percentage_satisfied": jnp.where(margin_losses < 0, 1.0, 0.0).mean(),
-                    }
-                critic_loss += state_loss
-
-                # Q(o_pre, a_pi) <= Q(o_pre, a_exp)
-                if self.config["cl"]["enable_action_constraint"]:
-                    a_pi = pref_batch['a_pi'][:,:6]
-                    a_ex = pref_batch['a_exp'][:,:6]
-                    
-                    rng, o_pre_a_pi_qf_key, o_pre_a_ex_qf_key = jax.random.split(rng, 3)
-                    o_pre_a_pi_qf = self.forward_critic(o_pre, a_pi, rng=o_pre_a_pi_qf_key, grad_params=params)
-                    o_pre_a_ex_qf = self.forward_critic(o_pre, a_ex, rng=o_pre_a_ex_qf_key, grad_params=params)
-                    action_losses = reward_coeff * (o_pre_a_pi_qf - o_pre_a_ex_qf)
-                    action_loss = jnp.where(action_losses < 0, 0.0, action_losses).mean()
-
-                    info = info | {
-                        "action_loss": action_loss,
-                        "o_pre_a_pi_qf": o_pre_a_pi_qf.mean(),
-                        "o_pre_a_ex_qf": o_pre_a_ex_qf.mean(),
-                        "action_loss_percentage_satisfied": jnp.where(action_losses < 0, 1.0, 0.0).mean(),
-                    }
-                    critic_loss += action_loss
-
         return critic_loss, info
 
 
-    def grasp_critic_loss_fn(self, batch, pref_batch, params: Params, rng: PRNGKey):
+    def grasp_critic_loss_fn(self, batch, params: Params, rng: PRNGKey):
         """classes that inherit this class can change this function"""
 
         batch_size = batch["rewards"].shape[0]
@@ -426,114 +404,18 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
 
         # Compute MSE loss between predicted and target Q-values
         chex.assert_equal_shape([predicted_grasp_q, target_grasp_q])
-        critic_loss = jnp.mean((predicted_grasp_q - target_grasp_q) ** 2)
+        grasp_critic_loss = jnp.mean((predicted_grasp_q - target_grasp_q) ** 2)
 
         info = {
-            "grasp_critic_loss": critic_loss,
+            "grasp_critic_loss": grasp_critic_loss,
             "predicted_grasp_qs": jnp.mean(predicted_grasp_q),
             "target_grasp_qs": jnp.mean(target_grasp_q),
             "grasp_rewards": grasp_rewards.mean(),
         }
 
-        if pref_batch is not None and "cl" in self.config and self.config["cl"]["enabled"]:
-            rng, state_key = jax.random.split(rng)
+        return grasp_critic_loss, info
 
-            o_pre = pref_batch["pre_obs"]
-            o_post = pref_batch["post_obs"]
-
-            rng, post_key = jax.random.split(rng)
-
-            o_pre_qf = self.forward_grasp_critic(o_pre, rng=state_key, grad_params=params).max(axis=-1)
-            o_post_qf = self.forward_grasp_critic(o_post, rng=post_key, grad_params=params).max(axis=-1)
-
-            if not self.config["cl"]["soft"]:
-                # constraint satisfied if pre_grasp_q * constraint_coeff - post_grasp_q <= constraint_eps * max(abs(pre_grasp_q), abs(post_grasp_q))
-                constraint_coeff = jnp.array(self.config["cl"]["constraint_coeff"])
-                constraint_eps = jnp.array(self.config["cl"]["constraint_eps"])
-
-                qf_diff = jnp.where(
-                    constraint_coeff * o_pre_qf - o_post_qf <= constraint_eps * jnp.maximum(jnp.abs(o_pre_qf), jnp.abs(o_post_qf)),
-                    0.0,
-                    constraint_coeff * o_pre_qf - o_post_qf
-                )
-
-                log_alpha_gripper_state = self.forward_log_alpha_gripper(o_pre, o_post)
-                alpha_state = jnp.clip(jnp.exp(log_alpha_gripper_state), 0.0, 1e6)
-                dual_loss = jnp.multiply(alpha_state, qf_diff.T).mean()
-                grasp_critic_loss += dual_loss
-                log_alpha_gripper_state = self.forward_log_alpha_gripper(o_pre, o_post)
-                alpha_state = jnp.clip(jnp.exp(log_alpha_gripper_state), 0.0, 1e6)
-                dual_loss = jnp.multiply(alpha_state, qf_diff.T).mean()
-                grasp_critic_loss += dual_loss
-
-                info = info | {
-                    "grasp_dual_loss": dual_loss,
-                    "grasp_alpha_state": alpha_state.mean(),
-                    "grasp_qf_diff": qf_diff.mean(),
-                }
-            else:
-                constraint_coeff = jnp.array(self.config["cl"]["constraint_coeff"])
-                reward_coeff = jnp.array(self.config["cl"]["reward_coeff"])
-                
-                # Q(o_pre, pi(o_pre)) <= Q(o_post, pi(o_post))
-                state_losses = reward_coeff * (o_pre_qf - o_post_qf)
-                state_loss = jnp.where(state_losses < 0, 0.0, state_losses).mean()
-
-                info = info | {
-                    "state_loss": state_loss,
-                    "constraint_coeff": constraint_coeff,
-                    "reward_coeff": reward_coeff,
-                    "pre_qf": o_pre_qf.mean(),
-                    "post_qf": o_post_qf.mean(),
-                    "state_loss_percentage_satisfied": jnp.where(state_losses < 0, 1.0, 0.0).mean(),
-                    "pre_qf_percentage_negative": jnp.where(o_pre_qf < 0, 1.0, 0.0).mean(),
-                    "post_qf_percentage_negative": jnp.where(o_post_qf < 0, 1.0, 0.0).mean(),
-                }
-
-                # Q(o_pre, pi(o_pre)) >= gamma ** t * Q(o_post, pi(o_post))
-                if self.config["cl"]["enable_margin_constraint"]:
-                    coeff = jnp.power(self.config['discount'], pref_batch["t"])
-                    margin_losses = reward_coeff * (jnp.multiply(coeff, o_post_qf) - o_pre_qf)
-                    margin_loss = jnp.where(margin_losses < 0, 0.0, margin_losses).mean()
-                    state_loss += margin_loss
-
-                    info = info | {
-                        "margin_loss": margin_loss,
-                        "coeff": coeff.mean(),
-                        "discount": self.config['discount'],
-                        "t": pref_batch["t"].mean(),
-                        "margin_loss_percentage_satisfied": jnp.where(margin_losses < 0, 1.0, 0.0).mean(),
-                    }
-                critic_loss += state_loss
-
-                # Q(o_pre, a_pi) <= Q(o_pre, a_exp)
-                if self.config["cl"]["enable_action_constraint"]:
-                    chex.assert_shape(pref_batch['a_pi'], (batch_size, None))
-                    chex.assert_shape(pref_batch['a_exp'], (batch_size, None))
-                    a_pi = jnp.array(jnp.round(pref_batch['a_pi'][:,-1] + 1), dtype=jnp.int32)
-                    a_ex = jnp.array(jnp.round(pref_batch['a_exp'][:,-1] + 1), dtype=jnp.int32)
-                    
-                    rng, o_pre_a_pi_qf_key, o_pre_a_ex_qf_key = jax.random.split(rng, 3)
-                    o_pre_a_pi_qf = self.forward_grasp_critic(o_pre, rng=o_pre_a_pi_qf_key, grad_params=params)[jnp.arange(batch_size), a_pi]
-                    chex.assert_shape(o_pre_a_pi_qf, (batch_size,))
-                    o_pre_a_ex_qf = self.forward_grasp_critic(o_pre, rng=o_pre_a_ex_qf_key, grad_params=params)[jnp.arange(batch_size), a_ex]
-                    chex.assert_shape(o_pre_a_pi_qf, (batch_size,))
-
-                    action_losses = reward_coeff * (o_pre_a_pi_qf - o_pre_a_ex_qf)
-                    action_loss = jnp.where(action_losses < 0, 0.0, action_losses).mean()
-
-                    info = info | {
-                        "action_loss": action_loss,
-                        "o_pre_a_pi_qf": o_pre_a_pi_qf.mean(),
-                        "o_pre_a_ex_qf": o_pre_a_ex_qf.mean(),
-                        "action_loss_percentage_satisfied": jnp.where(action_losses < 0, 1.0, 0.0).mean(),
-                    }
-                    critic_loss += action_loss
-
-        return critic_loss, info
-
-
-    def policy_loss_fn(self, batch, bc_batch, params: Params, rng: PRNGKey):
+    def policy_loss_fn(self, batch, bc_batch, params: Params, rng: PRNGKey, current_step: Optional[int] = None):
         batch_size = batch["rewards"].shape[0]
         temperature = self.forward_temperature()
 
@@ -561,35 +443,60 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "entropy": -log_probs.mean(),
         }
 
-        if self.config['use_bc_loss']:
+        if self.config.get('use_bc_loss', False):
             assert bc_batch is not None
+            # breakpoint()
             N = bc_batch["rewards"].shape[0]
 
             rng, bc_rng, bc_grasp_rng = jax.random.split(rng, 3)
             o_pre = bc_batch["observations"]
             a_exp = bc_batch["actions"]
+
+            timestep = jnp.asarray(bc_batch["timestep"], dtype=jnp.float32) # [BATCH_SIZE]
+            decay_coeff = jnp.array(self.config.get("bc_timestep_decay", 0.0), dtype=jnp.float32)
+            decay_base = 1.0 - decay_coeff # scalar
+
+            # Compute age: how many steps since the transition was collected
+            # If current_step is not provided, fall back to old behavior (using timestep directly)
+            ## adding asserts to make sure its always using current_step
+            # print_green(timestep)
+            # print_green(f"current_step: {current_step}")
+            if current_step is not None:
+                current_step_float = jnp.array(current_step, dtype=jnp.float32)
+                age = current_step_float - timestep  # [BATCH_SIZE]
+                # Clamp age to be non-negative (in case of data inconsistencies)
+                age = jnp.maximum(age, 0.0)
+                bc_weights = jnp.power(decay_base, age) # [BATCH_SIZE]
+            else:
+                # Fallback: use timestep directly (old behavior, for backward compatibility)
+                # bc_weights = jnp.power(decay_base, timestep) # [BATCH_SIZE]
+                raise ValueError("current_step must be provided when using BC loss.")
+            # jax.debug.print(bc_weights)
             dist = self.forward_policy(o_pre, rng=bc_rng, grad_params=params)
-            bc_loss = -dist.log_prob(a_exp[:,:-1]).mean()
-            actor_loss += bc_loss * self.bc_coeff
+            target_actions = a_exp[:,:-1]
+            target_actions = jnp.clip(target_actions, -0.999, 0.999)  # Ensure actions are within valid range for tanh-squashed distribution
+            bc_loss = (-dist.log_prob(target_actions) * bc_weights).mean()
+            actor_loss += bc_loss
 
             beta = 0.1
             a_exp_grasp = jnp.array(jnp.round(a_exp[:,-1] + 1), dtype=jnp.int32)
-            chex.assert_shape(a_exp_grasp, (N,))
+            # chex.assert_shape(a_exp_grasp, (N,))
             grasp_qs = self.forward_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
-            chex.assert_shape(grasp_qs, (N, 3))
+            # chex.assert_shape(grasp_qs, (N, 3))
             grasp_logprobs = jax.nn.log_softmax(grasp_qs / beta, axis=1)
-            chex.assert_shape(grasp_logprobs, (N, 3))
+            # chex.assert_shape(grasp_logprobs, (N, 3))
             bc_grasp_loss = -grasp_logprobs[jnp.arange(N), a_exp_grasp]
-            chex.assert_shape(bc_grasp_loss, (N,))
-            bc_grasp_loss = bc_grasp_loss.mean()
+            # chex.assert_shape(bc_grasp_loss, (N,))
+            # Apply timestep decay weights to grasp loss as well
+            bc_grasp_loss = (bc_grasp_loss * bc_weights).mean()
 
-            actor_loss += bc_grasp_loss * self.bc_coeff
+            actor_loss += bc_grasp_loss
 
             info = info | {
                 "bc_loss": bc_loss,
                 "bc_grasp_loss": bc_grasp_loss,
                 "bc_loss_total": bc_loss + bc_grasp_loss,
-                "bc_coeff": self.bc_coeff,
+                "bc_weights_mean": bc_weights.mean(),
             }
 
         return actor_loss, info
@@ -607,101 +514,17 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         )
         return temperature_loss, {"temperature_loss": temperature_loss}
 
-    def log_alpha_state_loss_fn(self, pref_batch, params: Params, rng: PRNGKey):
-        if not ("cl" in self.config and self.config["cl"]["enabled"] and pref_batch):
-            return 0.0, {}
-
-        rng, state_key = jax.random.split(rng)
-
-        o_pre = pref_batch["pre_obs"]
-        o_post = pref_batch["post_obs"]
-
-        log_alpha_state = self.forward_log_alpha(o_pre, o_post, grad_params=params)
-        alpha_state = jnp.clip(jnp.exp(log_alpha_state), 0.0, 1e6)
-
-        a_pre = self.forward_policy(o_pre, rng=state_key).sample(seed=state_key)
-        rng, post_key = jax.random.split(rng)
-        a_post = self.forward_policy(o_post, rng=post_key).sample(seed=post_key)
-
-        o_pre_qf = self.forward_critic(o_pre, a_pre, rng=state_key)
-        o_post_qf = self.forward_critic(o_post, a_post, rng=post_key)
-
-        constraint_coeff = self.config["cl"]["constraint_coeff"]
-        constraint_eps = self.config["cl"]["constraint_eps"]
-
-        qf_diff = jnp.where(
-            constraint_coeff * o_pre_qf - o_post_qf <= constraint_eps * jnp.maximum(jnp.abs(o_pre_qf), jnp.abs(o_post_qf)),
-            0.0,
-            constraint_coeff * o_pre_qf - o_post_qf
-        )
-
-        dual_loss = jnp.multiply(alpha_state, qf_diff.T).mean()
-        log_alpha_loss = -dual_loss
-
-        info = {
-            "log_alpha_state_loss": log_alpha_loss,
-            "log_alpha_state": log_alpha_state.mean(),
-            "alpha_state": alpha_state.mean(),
-            "constraint_value": qf_diff.mean(),
-        }
-
-        return log_alpha_loss, info
-
-    def log_alpha_gripper_state_loss_fn(self, pref_batch, params: Params, rng: PRNGKey):
-        if not ("cl" in self.config and self.config["cl"]["enabled"] and pref_batch):
-            return 0.0, {}
-
-        rng, state_key = jax.random.split(rng)
-
-        o_pre = pref_batch["pre_obs"]
-        o_post = pref_batch["post_obs"]
-
-        pre_grasp_qs = self.forward_grasp_critic(o_pre, rng=state_key)
-        rng, post_key = jax.random.split(rng)
-        post_grasp_qs = self.forward_grasp_critic(o_post, rng=post_key)
-
-        pre_grasp_q = pre_grasp_qs.max(axis=-1)
-        post_grasp_q = post_grasp_qs.max(axis=-1)
-
-        constraint_coeff = self.config["cl"]["constraint_coeff"]
-        constraint_eps = self.config["cl"]["constraint_eps"]
-
-        qf_diff = jnp.where(
-            constraint_coeff * pre_grasp_q - post_grasp_q <= constraint_eps * jnp.maximum(jnp.abs(pre_grasp_q), jnp.abs(post_grasp_q)),
-            0.0,
-            constraint_coeff * pre_grasp_q - post_grasp_q
-        )
-
-        log_alpha_gripper_state = self.forward_log_alpha_gripper(o_pre, o_post, grad_params=params)
-        alpha_state = jnp.clip(jnp.exp(log_alpha_gripper_state), 0.0, 1e6)
-        dual_loss = jnp.multiply(alpha_state, qf_diff.T).mean()
-        log_alpha_loss = -dual_loss
-
-        info = {
-            "log_alpha_state_loss": log_alpha_loss,
-            "log_alpha_state": log_alpha_gripper_state.mean(),
-            "alpha_state": alpha_state.mean(),
-            "constraint_value": qf_diff.mean(),
-        }
-
-        return log_alpha_loss, info
-
-    def loss_fns(self, batch, pref_batch = None, bc_batch = None):
-        if self.config["use_bc_loss"]:
+    def loss_fns(self, batch, bc_batch = None, current_step: Optional[int] = None):
+        if self.config.get("use_bc_loss", False):
             assert bc_batch is not None
             print_green("Doing BC update.")
 
         loss_dict = {
-            "critic": partial(self.critic_loss_fn, batch, pref_batch),
-            "grasp_critic": partial(self.grasp_critic_loss_fn, batch, pref_batch),
-            "actor": partial(self.policy_loss_fn, batch, bc_batch),
+            "critic": partial(self.critic_loss_fn, batch),
+            "grasp_critic": partial(self.grasp_critic_loss_fn, batch),
+            "actor": partial(self.policy_loss_fn, batch, bc_batch, current_step=current_step),
             "temperature": partial(self.temperature_loss_fn, batch),
         }
-
-        if "cl" in self.config and self.config["cl"]["enabled"]:
-            print("Doing constraint update.")
-            loss_dict["log_alpha_state"] = partial(self.log_alpha_state_loss_fn, pref_batch)
-            loss_dict["log_alpha_gripper_state"] = partial(self.log_alpha_gripper_state_loss_fn, pref_batch)
 
         return loss_dict
 
@@ -714,7 +537,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         networks_to_update: FrozenSet[str] = frozenset(
             {"actor", "critic", "grasp_critic", "temperature"}
         ),
-        pref_batch = None,
         bc_batch = None,
         **kwargs
     ) -> Tuple["SACAgentHybridSingleArm", dict]:
@@ -745,20 +567,16 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             add_or_replace={"rewards": batch["rewards"] + self.config["reward_bias"]}
         )
 
+        current_step = kwargs.pop("current_step", None)
+
         # Compute gradients and update params
-        loss_fns = self.loss_fns(batch, pref_batch=pref_batch, bc_batch=bc_batch, **kwargs)
+        loss_fns = self.loss_fns(batch, bc_batch=bc_batch, current_step=current_step, **kwargs)
 
         # Only compute gradients for specified steps
         assert networks_to_update.issubset(
             loss_fns.keys()
         ), f"{networks_to_update} not within {loss_fns.keys()}"
-        if self.config["cl"]["enabled"] and self.config["cl"]["soft"]:
-            assert "log_alpha_state" not in networks_to_update
-            assert "log_alpha_gripper_state" not in networks_to_update
-        elif self.config["cl"]["enabled"] and not self.config["cl"]["soft"]:
-            assert "log_alpha_state" in networks_to_update
-            assert "log_alpha_gripper_state" in networks_to_update
-        
+
         for key in loss_fns.keys() - networks_to_update:
             loss_fns[key] = lambda params, rng: (0.0, {})
 
@@ -769,9 +587,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         # Update target network (if requested)
         if "critic" in networks_to_update:
             new_state = new_state.target_update(self.config["soft_target_update_rate"])
-
-        decay_factor = jnp.exp(-5e-4)
-        new_bc_coeff = jnp.maximum(decay_factor * self.bc_coeff, jnp.array(0.01))
 
         # Update RNG
         new_state = new_state.replace(rng=rng)
@@ -784,7 +599,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             ):
                 info[f"{name}_lr"] = opt_state.hyperparams["learning_rate"]
 
-        return self.replace(state=new_state, bc_coeff=new_bc_coeff), info
+        return self.replace(state=new_state), info
 
     def loss_bc(self, bc_batch, params: Params, rng: PRNGKey):
         assert bc_batch is not None
@@ -794,25 +609,24 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         o_pre = bc_batch["observations"]
         a_exp = bc_batch["actions"]
         dist = self.forward_policy(o_pre, rng=bc_rng, grad_params=params)
-        log_probs = dist.log_prob(a_exp[:,:-1])
-        chex.assert_shape(log_probs, (N,))
-        bc_loss = -log_probs.mean() * self.bc_coeff
+        log_probs = dist.log_prob(jnp.clip(a_exp[:,:-1], -0.999, 0.999))
+        # chex.assert_shape(log_probs, (N,))
+        bc_loss = -log_probs.mean()
 
         info = {
             "bc_loss": bc_loss,
-            "bc_coeff": self.bc_coeff,
         }
 
         beta = 0.1
         a_exp_grasp = jnp.array(jnp.round(a_exp[:,-1] + 1), dtype=jnp.int32)
-        chex.assert_shape(a_exp_grasp, (N,))
+        # chex.assert_shape(a_exp_grasp, (N,))
         grasp_qs = self.forward_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
-        chex.assert_shape(grasp_qs, (N, 3))
+        # chex.assert_shape(grasp_qs, (N, 3))
         grasp_logprobs = jax.nn.log_softmax(grasp_qs / beta, axis=1)
-        chex.assert_shape(grasp_logprobs, (N, 3))
+        # chex.assert_shape(grasp_logprobs, (N, 3))
         bc_grasp_loss = -grasp_logprobs[jnp.arange(N), a_exp_grasp]
-        chex.assert_shape(bc_grasp_loss, (N,))
-        bc_grasp_loss = bc_grasp_loss.mean() * self.bc_coeff
+        # chex.assert_shape(bc_grasp_loss, (N,))
+        bc_grasp_loss = bc_grasp_loss.mean()
 
         bc_loss += bc_grasp_loss
 
@@ -822,12 +636,10 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         }
 
         return bc_loss, info
-    
+
     @jax.jit
     def update_bc(self, bc_batch, pmap_axis = None):
         loss_fn_keys = ["critic", "grasp_critic", "actor", "temperature"]
-        if self.config["cl"]["enabled"]:
-            loss_fn_keys += ["log_alpha_state", "log_alpha_gripper_state"]
         loss_fns = {k: lambda params, rng: (0.0, {}) for k in loss_fn_keys}
         loss_fns["actor"] = partial(self.loss_bc, bc_batch)
         new_state, info = self.state.apply_loss_fns(
@@ -877,8 +689,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         critic_def: nn.Module,
         grasp_critic_def: nn.Module,
         temperature_def: nn.Module,
-        log_alpha_state_def: nn.Module = None,
-        log_alpha_gripper_state_def: nn.Module = None,
         # Optimizer
         actor_optimizer_kwargs={
             "learning_rate": 3e-4,
@@ -887,9 +697,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "learning_rate": 3e-4,
         },
         grasp_critic_optimizer_kwargs={
-            "learning_rate": 3e-4,
-        },
-        log_alpha_optimizer_kwargs={
             "learning_rate": 3e-4,
         },
         temperature_optimizer_kwargs={
@@ -915,11 +722,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "temperature": temperature_def,
         }
 
-        if log_alpha_state_def is not None:
-            networks["log_alpha_state"] = log_alpha_state_def
-        if log_alpha_gripper_state_def is not None:
-            networks["log_alpha_gripper_state"] = log_alpha_gripper_state_def
-
         model_def = ModuleDict(networks)
 
         # Define optimizers
@@ -929,9 +731,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "grasp_critic": make_optimizer(**grasp_critic_optimizer_kwargs),
             "temperature": make_optimizer(**temperature_optimizer_kwargs),
         }
-        if log_alpha_state_def is not None:
-            txs["log_alpha_state"] = make_optimizer(**log_alpha_optimizer_kwargs)
-            txs["log_alpha_gripper_state"] = make_optimizer(**log_alpha_optimizer_kwargs)
 
         rng, init_rng = jax.random.split(rng)
 
@@ -942,12 +741,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "grasp_critic": [observations],
             "temperature": [],
         }
-
-        # Add log_alpha_state initialization if present
-        if log_alpha_state_def is not None:
-            # Create dummy input with the right shape for initialization
-            init_dict["log_alpha_state"] = [observations, observations]
-            init_dict["log_alpha_gripper_state"] = [observations, observations]
 
         params = model_def.init(init_rng, **init_dict)["params"]
 
@@ -979,17 +772,9 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             **kwargs,
         )
 
-        # Add CL configuration if log_alpha_state is provided
-        if log_alpha_state_def is not None:
-            # Update with any user-provided CL settings
-            assert "cl" in kwargs
-            assert set(["enabled", "soft", "enable_margin_constraint", "enable_action_constraint", "constraint_eps", "reward_coeff", "constraint_coeff"]).issubset(set(kwargs["cl"].keys()))
-            config_dict["cl"] = kwargs["cl"]
-
         return cls(
             state=state,
             config=config_dict,
-            bc_coeff=jnp.array(0.1, dtype=jnp.float32),
         )
 
     @classmethod
@@ -1014,15 +799,13 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "tanh_squash_distribution": True,
             "std_parameterization": "uniform",
         },
-        log_alpha_network_kwargs: dict = {
-            "hidden_dims": [256, 256],
-        },
         critic_ensemble_size: int = 2,
         critic_subsample_size: Optional[int] = None,
         temperature_init: float = 1.0,
         image_keys: Iterable[str] = ("image",),
         augmentation_function: Optional[callable] = None,
         has_image: bool = True,
+        bc_timestep_decay: float = 0.0,
         **kwargs,
     ):
         """
@@ -1081,7 +864,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "critic": encoder_def,
             "actor": encoder_def,
             "grasp_critic": encoder_def,
-            'log_alpha': encoder_def,
         }
 
         # Define networks
@@ -1113,31 +895,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             name="temperature",
         )
 
-        # Create log_alpha_state network for CL if enabled
-        log_alpha_state_def = None
-        if kwargs.get("enable_cl", False):
-            log_alpha_state_backbone = MLP(
-                **log_alpha_network_kwargs,
-            )
-            log_alpha_state_def = partial(
-                AlphaNetwork,
-                encoder=encoders['log_alpha'],
-                network=log_alpha_state_backbone,
-                output_dim=critic_ensemble_size,
-            )(name="log_alpha_state")
-
-        log_alpha_gripper_state_def = None
-        if kwargs.get("enable_cl", False):
-            log_alpha_gripper_state_backbone = MLP(
-                **log_alpha_network_kwargs,
-            )
-            log_alpha_gripper_state_def = partial(
-                AlphaNetwork,
-                encoder=encoders['log_alpha'],
-                network=log_alpha_gripper_state_backbone,
-                output_dim=1,
-            )(name="log_alpha_gripper_state")
-
         agent = cls.create(
             rng,
             observations,
@@ -1146,12 +903,11 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             critic_def=critic_def,
             grasp_critic_def=grasp_critic_def,
             temperature_def=temperature_def,
-            log_alpha_state_def=log_alpha_state_def,
-            log_alpha_gripper_state_def=log_alpha_gripper_state_def,
             critic_ensemble_size=critic_ensemble_size,
             critic_subsample_size=critic_subsample_size,
             image_keys=image_keys,
             augmentation_function=augmentation_function,
+            bc_timestep_decay=bc_timestep_decay,
             **kwargs,
         )
 

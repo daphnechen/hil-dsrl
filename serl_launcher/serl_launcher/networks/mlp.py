@@ -3,13 +3,14 @@ from typing import Callable, Optional, Sequence
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+from typing import Union
 
 from serl_launcher.common.common import default_init
 
 
 class MLP(nn.Module):
     hidden_dims: Sequence[int]
-    activations: Callable[[jnp.ndarray], jnp.ndarray] | str = nn.swish
+    activations: Union[Callable[[jnp.ndarray], jnp.ndarray], str] = nn.swish
     activate_final: bool = False
     use_layer_norm: bool = False
     dropout_rate: Optional[float] = None

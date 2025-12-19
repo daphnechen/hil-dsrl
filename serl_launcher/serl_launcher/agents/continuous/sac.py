@@ -206,7 +206,7 @@ class SACAgent(flax.struct.PyTreeNode):
 
         return critic_loss, info
 
-    def policy_loss_fn(self, batch, params: Params, rng: PRNGKey):
+    def policy_loss_fn(self, batch, bc_batch, params: Params, rng: PRNGKey):
         batch_size = batch["rewards"].shape[0]
         temperature = self.forward_temperature()
 
@@ -233,6 +233,21 @@ class SACAgent(flax.struct.PyTreeNode):
             "temperature": temperature,
             "entropy": -log_probs.mean(),
         }
+        if self.config['use_bc_loss']:
+            assert bc_batch is not None
+            N = bc_batch["rewards"].shape[0]
+            rng, bc_rng = jax.random.split(rng, 2)
+            o_pre = bc_batch["observations"]
+            a_exp = bc_batch["actions"]
+
+            dist = self.forward_policy(o_pre, rng=bc_rng, grad_params=params)
+            bc_loss = -dist.log_prob(a_exp[:,:-1]).mean()
+            actor_loss += bc_loss * self.bc_coeff
+
+            info = info | {
+                "bc_loss": bc_loss,
+                "bc_coeff": self.bc_coeff,
+            }
 
         return actor_loss, info
 

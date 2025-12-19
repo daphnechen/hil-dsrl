@@ -20,6 +20,7 @@ from serl_launcher.utils.launcher import (
     make_wandb_logger,
 )
 from serl_launcher.data.data_store import MemoryEfficientReplayBufferDataStore
+import franka_sim.envs.utils as utils
 
 from experiments.mappings import CONFIG_MAPPING
 from experiments.config import DefaultTrainingConfig
@@ -64,7 +65,9 @@ def eval(
     """
     success_counter = 0
     time_list = []
+    buffer = []
     for episode in range(FLAGS.eval_n_trajs):
+        traj = []
         obs, _ = env.reset()
         done = False
         start_time = time.time()
@@ -73,7 +76,15 @@ def eval(
 
             actions = bc_agent.sample_actions(observations=obs, seed=key)
             actions = np.asarray(jax.device_get(actions))
+            actions = np.array(actions)
+            # if actions[-1] < -0.7:
+            #     actions[-1] = -0.9
+            # elif actions[-1] > 0.7:
+            #     actions[-1] = 0.9
+            # else:
+            #     actions[-1] = 0.0
             next_obs, reward, done, truncated, info = env.step(actions)
+            # traj.append([obs, action, ])
             obs = next_obs
             if done:
                 if reward:
@@ -83,6 +94,7 @@ def eval(
                 success_counter += reward
                 print(reward)
                 print(f"{success_counter}/{episode + 1}")
+                time.sleep(5.0)
 
     print(f"success rate: {success_counter / FLAGS.eval_n_trajs}")
     print(f"average time: {np.mean(time_list)}")
@@ -149,7 +161,7 @@ def main(_):
 
     # replicate agent across devices
     # need the jnp.array to avoid a bug where device_put doesn't recognize primitives
-    bc_agent: BCAgent = jax.device_put(
+    bc_agent: BCAgent = utils.device_put(
         jax.tree_map(jnp.array, bc_agent), sharding.replicate()
     )
 

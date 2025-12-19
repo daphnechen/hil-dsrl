@@ -10,6 +10,10 @@ class DefaultTrainingConfig:
     cta_ratio: int = 2
     discount: float = 0.97
 
+    pretraining_steps: int = 0
+    reward_scale: float = 1.0
+    rlif_minus_one: bool = False
+
     max_steps: int = 1000000
     replay_buffer_capacity: int = 200000
 
@@ -32,16 +36,15 @@ class DefaultTrainingConfig:
     image_keys: List[str] = None
     classifier_keys: List[str] = None
     proprio_keys: List[str] = None
-    
-    # "single-arm-learned-gripper", "dual-arm-learned-gripper" for with learned gripper, 
+
+    # "single-arm-learned-gripper", "dual-arm-learned-gripper" for with learned gripper,
     # "single-arm-fixed-gripper", "dual-arm-fixed-gripper" for without learned gripper (i.e. pregrasped)
     setup_mode: str = "single-arm-fixed-gripper"
 
     @abstractmethod
     def get_environment(self, fake_env=False, save_video=False, classifier=False):
         raise NotImplementedError
-    
+
     @abstractmethod
     def process_demos(self, demo):
         raise NotImplementedError
-    

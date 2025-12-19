@@ -30,12 +30,34 @@ class ImageDisplayer(threading.Thread):
 
     def run(self):
         while True:
-            img_array = self.queue.get()  # retrieve an image from the queue
+            img_array, last_action, t = self.queue.get()  # retrieve an image from the queue
             if img_array is None:  # None is our signal to exit
                 break
 
             frame = np.concatenate(
-                [cv2.resize(v, (128, 128)) for k, v in img_array.items() if "full" not in k], axis=1
+                [cv2.resize(v, (512, 512)) for k, v in img_array.items() if "full" not in k], axis=1
+            )
+
+            frame = cv2.putText(
+                img = frame,
+                text = f"act={[f'{a:.3f}' for a in last_action]}",
+                org = (10, 40),
+                fontFace = cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale = 0.6,
+                color = (255, 255, 255),
+                thickness = 2,
+                lineType = cv2.LINE_AA,
+            )
+
+            frame = cv2.putText(
+                img = frame,
+                text = f"t={t}",
+                org = (10, 70),
+                fontFace = cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale = 0.6,
+                color = (255, 255, 255),
+                thickness = 2,
+                lineType = cv2.LINE_AA,
             )
 
             cv2.imshow(self.name, frame)
@@ -182,6 +204,10 @@ class FrankaEnv(gym.Env):
                     self.terminate = True
             self.listener = keyboard.Listener(on_press=on_press)
             self.listener.start()
+        
+        self.last_action = np.zeros((7,))
+        self.num_times_fps_too_low = 0
+        self.t = 0
 
         print("Initialized Franka")
 
@@ -207,10 +233,28 @@ class FrankaEnv(gym.Env):
         )
         pose[3:] = Rotation.from_euler("xyz", euler).as_quat()
 
+        ### Clipping for bowl
+
+        bowl_y = -0.1
+        bowl_x_low = 0.35
+        bowl_x_high = 0.6
+        if pose[1] > bowl_y and (pose[0] > bowl_x_low and pose[0] < bowl_x_high):
+            # implies that gripper is close to bowl so make sure the height is high enough
+            min_z = 0.1
+            pose[2] = max(pose[2], min_z)
+
         return pose
+
+    def fix_position(self):
+        self._update_currpos()
+        if np.linalg.norm(self.clip_safety_box(self.currpos)[:6] - self.currpos[:6]) > 1e-4:
+            print_yellow(f"Warning: Detected robot outside the safety box (robot position: {self.currpos}, clipped position: {self.clip_safety_box(self.currpos)}).")
+        self._send_pos_command(self.clip_safety_box(self.currpos)) # Rico: This is such that next time we send a gripper command, the robot doesn't drift due to it continuing to move towards pose.
 
     def step(self, action: np.ndarray) -> tuple:
         """standard gym step function."""
+        self.last_action = action
+        self.t += 1
         start_time = time.time()
         action = np.clip(action, self.action_space.low, self.action_space.high)
         xyz_delta = action[:3]
@@ -226,11 +270,22 @@ class FrankaEnv(gym.Env):
 
         gripper_action = action[6] * self.action_scale[2]
 
+        self.fix_position() # Fixes the gripper moving when grasping bug.
         self._send_gripper_command(gripper_action)
         self._send_pos_command(self.clip_safety_box(self.nextpos))
 
         self.curr_path_length += 1
+
         dt = time.time() - start_time
+        if (1.0 / self.hz) - dt < 0:
+            self.num_times_fps_too_low += 1
+        else:
+            self.num_times_fps_too_low = 0
+        if self.num_times_fps_too_low >= 20:
+            print_yellow(
+                f"Warning: Robot operating below desired hz of {self.hz}. Current dt: {dt:.4f}s ({1.0/dt:.2f} Hz)"
+            )
+            self.num_times_fps_too_low = 0
         time.sleep(max(0, (1.0 / self.hz) - dt))
 
         self._update_currpos()
@@ -283,7 +338,7 @@ class FrankaEnv(gym.Env):
             self.recording_frames.append(full_res_images)
 
         if self.display_image:
-            self.img_queue.put(display_images)
+            self.img_queue.put([display_images, self.last_action, self.t])
         return images
 
     def interpolate_move(self, goal: np.ndarray, timeout: float):
@@ -334,6 +389,11 @@ class FrankaEnv(gym.Env):
             reset_pose = self.resetpos.copy()
             self.interpolate_move(reset_pose, timeout=1)
 
+        requests.post(self.url + "close_gripper")
+        time.sleep(0.5)
+        requests.post(self.url + "open_gripper")
+        time.sleep(0.5)
+
         # Change to compliance mode
         requests.post(self.url + "update_param", json=self.config.COMPLIANCE_PARAM)
 
@@ -352,6 +412,8 @@ class FrankaEnv(gym.Env):
         self.go_to_reset(joint_reset=joint_reset)
         self._recover()
         self.curr_path_length = 0
+        self.gripper_state = 0
+        self.t = 0
 
         self._update_currpos()
         obs = self._get_obs()
@@ -436,6 +498,30 @@ class FrankaEnv(gym.Env):
 
     def _send_gripper_command(self, pos: float, mode="binary"):
         """Internal function to send gripper command to the robot."""
+        # print(f"position: ", pos)
+        # print(f"gripper pos: ", self.curr_gripper_pos)
+        # print(" ")
+        # convert pos from [0,1] to -1,1
+        # 0 - open --> 1
+        # 1 - close --> -1
+        # pos = np.clip(pos, 0, 1)
+        # pos = 1-2*pos
+        # print("--in env")
+        # print(f"gripper state: ", self.gripper_state)
+        # print(f"pos: ", pos)
+        # print(f"gripper pos: ", self.curr_gripper_pos)
+        
+        # gripper_act = False
+        # if not self.gripper_state and pos > 0.9: # closing action when open
+        #     gripper_act = True
+        #     self.gripper_state = 1 # CLOSED GRIPPER
+        #     # print(f"Close Gripper Command: gs {self.gripper_state}, pos: {pos}")
+        # elif self.gripper_state and pos < 0.1:
+        #     gripper_act = True
+        #     self.gripper_state = 0 # OPEN GRIPPER
+            # print(f"Opening Gripper Command: gs {self.gripper_state}, pos: {pos}")
+        # print(f"gripper act: ", gripper_act)
+        # print("--")
         if mode == "binary":
             if (pos <= -0.5) and (self.curr_gripper_pos > 0.85) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # close gripper
                 print_yellow("close.")
@@ -444,7 +530,8 @@ class FrankaEnv(gym.Env):
                 time.sleep(self.gripper_sleep)
             elif (pos >= 0.5) and (self.curr_gripper_pos < 0.85) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # open gripper
                 print_yellow("open.")
-                requests.post(self.url + "reset_gripper")
+                # requests.post(self.url + "reset_gripper")
+                requests.post(self.url + "open_gripper")
                 self.last_gripper_act = time.time()
                 time.sleep(self.gripper_sleep)
             else: 

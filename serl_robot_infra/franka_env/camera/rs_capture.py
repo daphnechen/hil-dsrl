@@ -1,5 +1,6 @@
 import numpy as np
 import pyrealsense2 as rs  # Intel RealSense cross-platform open-source API
+import time
 
 
 class RSCapture:
@@ -7,7 +8,7 @@ class RSCapture:
         devices = rs.context().devices
         return [d.get_info(rs.camera_info.serial_number) for d in devices]
 
-    def __init__(self, name, serial_number, dim=(640, 480), fps=15, depth=False, exposure=40000):
+    def __init__(self, name, serial_number, dim=(640, 480), fps=15, depth=False, exposure=40000, gain=32):
         self.name = name
         assert serial_number in self.get_device_serial_numbers()
         self.serial_number = serial_number
@@ -19,8 +20,10 @@ class RSCapture:
         if self.depth:
             self.cfg.enable_stream(rs.stream.depth, dim[0], dim[1], rs.format.z16, fps)
         self.profile = self.pipe.start(self.cfg)
+        print(f"[{self.name}]: {self.profile.get_stream(rs.stream.color).as_video_stream_profile()}")
         self.s = self.profile.get_device().query_sensors()[0]
         self.s.set_option(rs.option.exposure, exposure)
+        self.s.set_option(rs.option.gain, gain)
 
         # Create an align object
         # rs.align allows us to perform alignment of depth frames to others frames
@@ -48,3 +51,10 @@ class RSCapture:
     def close(self):
         self.pipe.stop()
         self.cfg.disable_all_streams()
+
+if __name__ == "__main__":
+    cap = RSCapture("218622272273", "123622270802", dim=(424, 240), fps=60, depth=False, exposure=10000)
+    for i in range(100000):
+        ret, img = cap.read()
+        if ret:
+            print(img.shape)

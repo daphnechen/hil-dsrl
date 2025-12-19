@@ -26,7 +26,8 @@ def main(_):
             t1 = time.time()
             next_obs, rew, done, truncated, info = env.step(actions)
             t2 = time.time()
-            print(f"Robot operating at {1 / (t2 - t1)} Hz.")
+            if 1 / (t2 - t1) < 8.5 or 1 / (t2 - t1) > 10.5:
+                print(f"Robot operating at {1 / (t2 - t1)} Hz.")
             obs = next_obs
 
 

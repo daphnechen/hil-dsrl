@@ -208,7 +208,7 @@ class GripperCloseEnv(gym.ActionWrapper):
 
     
 class SpacemouseIntervention(gym.ActionWrapper):
-    def __init__(self, env, action_indices=None):
+    def __init__(self, env, action_indices=None, eval_env=False):
         super().__init__(env)
 
         self.gripper_enabled = True
@@ -218,6 +218,9 @@ class SpacemouseIntervention(gym.ActionWrapper):
         self.expert = SpaceMouseExpert()
         self.left, self.right = False, False
         self.action_indices = action_indices
+        self.new_gripper = False
+        self.gripper_action = 0
+        # self.eval_env = eval_env
 
     def action(self, action: np.ndarray) -> np.ndarray:
         """
@@ -234,15 +237,35 @@ class SpacemouseIntervention(gym.ActionWrapper):
             intervened = True
 
         if self.gripper_enabled:
-            if self.left:  # close gripper
-                gripper_action = np.random.uniform(-1, -0.9, size=(1,))
-                intervened = True
-            elif self.right:  # open gripper
-                gripper_action = np.random.uniform(0.9, 1, size=(1,))
-                intervened = True
-            else:
-                gripper_action = np.zeros((1,))
+            if not self.new_gripper:
+                if self.left:  # close gripper
+                    gripper_action = np.random.uniform(-1, -0.9, size=(1,))
+                    intervened = True
+                elif self.right:  # open gripper
+                    gripper_action = np.random.uniform(0.9, 1, size=(1,))
+                    intervened = True
+                else:
+                    gripper_action = np.zeros((1,))
+            # else:
+            #     if self.left:
+            #         intervened = True
+            #         if self.gripper_action < 0.1:
+            #             changed_gripper_action = 1
+            #             print(f"Received input to change gripper to close")
+            #         else:
+            #             changed_gripper_action = 0
+            #             # print(f"Received input to change gripper to open")
+            #         self.gripper_action = changed_gripper_action
+            #         gripper_action = np.array([self.gripper_action]).copy()
+            #         # print(f"gripper action: ", gripper_action)
+            #             # import time
+            #             # time.sleep(1.0)
             expert_a = np.concatenate((expert_a, gripper_action), axis=0)
+            #         # if not self.eval_env:
+            #         if intervened:
+            #             action[-1] = gripper_action[0]
+            
+
 
         if self.action_indices is not None:
             filtered_expert_a = np.zeros_like(expert_a)
@@ -527,3 +550,40 @@ class BruhImageResizingWrapper(gym.ObservationWrapper):
             else:
                 raise Exception(f"{observation[k].shape}")
         return observation
+
+import torch
+class DSRLWrapper(gym.Wrapper):
+    def __init__(self, env: gym.Env, base_dp_policy):
+        super().__init__(env)
+        self.base_dp_policy = base_dp_policy
+        self.obs = None
+    
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        # pass the observation to the base diffusion policy
+        self.base_dp_policy.clear_obs()
+        obs = {k:v[0] for k,v in obs.items()}
+        self.base_dp_policy.add_obs(obs)
+        return obs, info
+
+    def step(self, action: np.ndarray):
+        action = torch.tensor(action[None], dtype=torch.float32)
+        env_actions = self.base_dp_policy.get_action(None, action)
+        reward_sum = 0.0
+        last_obs = copy.deepcopy(self.base_dp_policy.obs_dequeue)
+        for a_t in range(env_actions.shape[0]):
+            action = env_actions[a_t]
+            next_obs, rew, done, truncated, info = self.env.step(action)
+            reward_sum += rew
+            if done or truncated:
+                break
+        rew = reward_sum
+        next_obs = {k:v[0] for k,v in next_obs.items()}
+        # pass the observation to the base diffusion policy
+        self.base_dp_policy.add_obs(next_obs)
+
+        if info["intervene_action"] is not None:
+            action = torch.tensor(info["intervene_action"][None], dtype=torch.float32)
+            noisy_action = self.base_dp_policy.get_noise(last_obs, action)
+            info["intervene_action"] = noisy_action.squeeze(0).numpy()
+        return next_obs, rew, done, truncated, info
