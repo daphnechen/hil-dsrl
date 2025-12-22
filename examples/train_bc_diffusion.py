@@ -9,8 +9,13 @@ import tqdm
 from absl import app, flags
 from flax.training import checkpoints
 import os
+import sys
 import pickle as pkl
 from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics
+
+# Add examples directory to path if running from root
+if os.path.basename(os.getcwd()) != "examples":
+    sys.path.insert(0, os.path.join(os.getcwd(), "examples"))
 
 from serl_launcher.agents.continuous.bc_diffusion import BCDiffusionAgent
 
@@ -32,6 +37,7 @@ flags.DEFINE_string("bc_checkpoint_path", None, "Path to save checkpoints.")
 flags.DEFINE_integer("eval_n_trajs", 0, "Number of trajectories to evaluate.")
 flags.DEFINE_integer("train_steps", 20_000, "Number of training steps.")
 flags.DEFINE_bool("save_video", False, "Save video of the evaluation.")
+flags.DEFINE_multi_string("demo_path", None, "Path(s) to demo data files (glob patterns supported).")
 
 # Diffusion-specific flags
 flags.DEFINE_integer("action_horizon", 1, "Number of future actions to predict (action chunk size).")
@@ -238,11 +244,22 @@ def main(_):
             debug=FLAGS.debug,
         )
 
-        demo_path = glob.glob(os.path.join(os.getcwd(), "demo_data", "*.pkl"))
+        # Load demo data
+        if FLAGS.demo_path:
+            # Use specified demo paths
+            demo_paths = []
+            for pattern in FLAGS.demo_path:
+                demo_paths.extend(glob.glob(pattern))
+        else:
+            # Default: load all demos from demo_data/
+            demo_paths = glob.glob(os.path.join(os.getcwd(), "demo_data", "*.pkl"))
 
-        assert demo_path is not []
+        assert demo_paths, "No demo files found!"
+        print(f"Loading demos from {len(demo_paths)} file(s):")
+        for path in demo_paths:
+            print(f"  - {path}")
 
-        for path in demo_path:
+        for path in demo_paths:
             with open(path, "rb") as f:
                 transitions = pkl.load(f)
                 for transition in transitions:

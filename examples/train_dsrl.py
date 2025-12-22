@@ -15,12 +15,17 @@ import tqdm
 from absl import app, flags
 from flax.training import checkpoints
 import os
+import sys
 import copy
 import pickle as pkl
 from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics
 from natsort import natsorted
 from pynput import keyboard
 import requests
+
+# Add examples directory to path if running from root
+if os.path.basename(os.getcwd()) != "examples":
+    sys.path.insert(0, os.path.join(os.getcwd(), "examples"))
 
 from serl_launcher.agents.continuous.dsrl import DSRLAgent
 from serl_launcher.agents.continuous.bc_diffusion import BCDiffusionAgent
@@ -107,7 +112,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     1. π^W(s) → w_steer (steering noise from learned policy)
     2. π_dp^W(s, w_steer) → a (action from diffusion with steered noise)
     """
-    global failure_key, pause_key
+    global failure_key, pause_key, checkpoint_key
 
     client = TrainerClient(
         "actor_env",
@@ -163,7 +168,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
         return
 
     # Training mode
-    obs, _ = env.reset()
+    obs, info = env.reset()
     done = False
 
     # Keyboard listener for interventions
@@ -239,6 +244,7 @@ def learner(
     agent,
     replay_buffer,
     demo_buffer,
+    config,  # Experiment config with training hyperparameters
     wandb_logger=None,
 ):
     """
@@ -249,13 +255,28 @@ def learner(
     2. Update Q^W by distilling Q^A: L_W = (Q^W(s,w) - Q^A(s, π_dp^W(s,w)))^2
     3. Update π^W to maximize Q^W: L_π = -E[Q^W(s, π^W(s))]
     """
-    # Training config
-    from serl_launcher.utils.launcher import make_trainer_config
+    # Trainer server config (for agentlace)
+    trainer_config = make_trainer_config()
 
-    config = make_trainer_config()
+    # Checkpoint saving callback for actor requests
+    def checkpoint_callback(type: str, payload: dict) -> dict:
+        """Callback for when actor requests checkpoint save."""
+        if type == "save_checkpoint":
+            step = payload.get("step", 0)
+            if FLAGS.checkpoint_path is not None:
+                checkpoint_path = os.path.abspath(FLAGS.checkpoint_path)
+                checkpoints.save_checkpoint(
+                    checkpoint_path,
+                    agent.state,
+                    step=step,
+                    keep=10,
+                    overwrite=True,
+                )
+                print_green(f"Saved checkpoint at step {step}")
+        return {}
 
-    # Create trainer server
-    trainer_server = TrainerServer(make_trainer_config())
+    # Create trainer server with callback
+    trainer_server = TrainerServer(trainer_config, request_callback=checkpoint_callback)
     trainer_server.register_data_store("actor_env", replay_buffer)
     trainer_server.register_data_store("actor_env_intervene", demo_buffer)
     trainer_server.start(threaded=True)
@@ -281,19 +302,22 @@ def learner(
     else:
         demo_buffer_iterator = None
 
-    # Checkpoint saving callback
-    def save_checkpoint(step):
-        if FLAGS.checkpoint_path is not None:
-            checkpoints.save_checkpoint(
-                FLAGS.checkpoint_path,
-                agent.state,
-                step=step,
-                keep=10,
-                overwrite=True,
-            )
-            print_green(f"Saved checkpoint at step {step}")
-
-    trainer_server.register_callback("save_checkpoint", save_checkpoint)
+    # Wait for replay buffer to fill up
+    print_green(f"Waiting for replay buffer to fill (need {config.training_starts} transitions)...")
+    import time
+    pbar = tqdm.tqdm(
+        total=config.training_starts,
+        initial=len(replay_buffer),
+        desc="Filling up replay buffer",
+        position=0,
+        leave=True,
+    )
+    while len(replay_buffer) < config.training_starts:
+        pbar.update(len(replay_buffer) - pbar.n)
+        time.sleep(1)
+    pbar.update(len(replay_buffer) - pbar.n)
+    pbar.close()
+    print_green("Replay buffer filled! Starting training...")
 
     # Training loop
     timer = Timer()
@@ -320,7 +344,16 @@ def learner(
 
         # Checkpoint saving
         if step > 0 and step % config.checkpoint_period == 0:
-            save_checkpoint(step)
+            if FLAGS.checkpoint_path is not None:
+                checkpoint_path = os.path.abspath(FLAGS.checkpoint_path)
+                checkpoints.save_checkpoint(
+                    checkpoint_path,
+                    agent.state,
+                    step=step,
+                    keep=10,
+                    overwrite=True,
+                )
+                print_green(f"Saved checkpoint at step {step}")
 
         timer.tock("total")
 
@@ -328,8 +361,8 @@ def learner(
 def main(_):
     # Load experiment config
     assert FLAGS.exp_name in CONFIG_MAPPING, f"Experiment {FLAGS.exp_name} not found in CONFIG_MAPPING"
-    config_mod = CONFIG_MAPPING[FLAGS.exp_name]
-    config = config_mod.TrainConfig()
+    TrainConfigClass = CONFIG_MAPPING[FLAGS.exp_name]
+    config = TrainConfigClass()
 
     # Determine devices
     assert FLAGS.learner + FLAGS.actor == 1, "Either learner or actor must be specified"
@@ -364,7 +397,10 @@ def main(_):
     print_green("Loading pre-trained diffusion policy...")
 
     assert FLAGS.diffusion_checkpoint is not None, "Must provide --diffusion_checkpoint"
-    assert os.path.exists(FLAGS.diffusion_checkpoint), f"Diffusion checkpoint not found: {FLAGS.diffusion_checkpoint}"
+
+    # Convert to absolute path
+    diffusion_checkpoint_path = os.path.abspath(FLAGS.diffusion_checkpoint)
+    assert os.path.exists(diffusion_checkpoint_path), f"Diffusion checkpoint not found: {diffusion_checkpoint_path}"
 
     # Create diffusion agent
     diffusion_agent = BCDiffusionAgent.create(
@@ -373,6 +409,7 @@ def main(_):
         actions=sample_action,
         image_keys=config.image_keys,
         encoder_type=config.encoder_type,
+        use_proprio=True,  # Must match how checkpoint was trained
         action_horizon=FLAGS.action_horizon,
         num_train_timesteps=FLAGS.num_train_timesteps,
         num_inference_timesteps=FLAGS.num_inference_timesteps,
@@ -381,7 +418,7 @@ def main(_):
     # Load checkpoint
     diffusion_agent = diffusion_agent.replace(
         state=checkpoints.restore_checkpoint(
-            FLAGS.diffusion_checkpoint,
+            diffusion_checkpoint_path,
             diffusion_agent.state,
         )
     )
@@ -491,6 +528,7 @@ def main(_):
             agent,
             replay_buffer,
             demo_buffer,
+            config,
             wandb_logger=wandb_logger,
         )
 
