@@ -61,6 +61,7 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
     config: dict = nonpytree_field()
     noise_schedule: Any = nonpytree_field()
     ddim_sampler: Any = nonpytree_field()
+    timesteps_list: list = nonpytree_field()  # Pre-computed Python list for JIT compatibility
 
     def data_augmentation_fn(self, rng, observations):
         """Apply data augmentation to image observations."""
@@ -189,12 +190,11 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
         rng = seed if seed is not None else jax.random.PRNGKey(0)
         actions = jax.random.normal(rng, (batch_size, action_horizon, action_dim))
 
-        # DDIM denoising loop
-        timesteps = self.ddim_sampler.timesteps
+        # DDIM denoising loop (use pre-computed timesteps list for JIT compatibility)
         alphas_cumprod = self.noise_schedule.alphas_cumprod
-        num_steps = len(timesteps)
+        num_steps = len(self.timesteps_list)
 
-        for i, t in enumerate(timesteps):
+        for i, t in enumerate(self.timesteps_list):
             # JIT-compiled forward pass
             predicted_noise = self._forward_pass_jitted(
                 observations=observations,
@@ -203,12 +203,12 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
                 num_inference_steps=num_steps,
             )
 
-            # DDIM step - inline to avoid dynamic indexing issues
-            alpha_prod_t = alphas_cumprod[int(t)]
+            # DDIM step - t is now a Python int, not a traced value
+            alpha_prod_t = alphas_cumprod[t]
 
             # Get next timestep's alpha
-            if i + 1 < len(timesteps):
-                alpha_prod_t_prev = alphas_cumprod[int(timesteps[i + 1])]
+            if i + 1 < num_steps:
+                alpha_prod_t_prev = alphas_cumprod[self.timesteps_list[i + 1]]
             else:
                 alpha_prod_t_prev = jnp.ones_like(alpha_prod_t)
 
@@ -225,6 +225,70 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
 
         # Return only the first action in the sequence (action_horizon dimension)
         # Shape: (batch, action_horizon, action_dim) -> (batch, action_dim)
+        return actions[:, 0, :]
+
+    def sample_actions_from_noise(
+        self,
+        observations: np.ndarray,
+        noise: jnp.ndarray,
+    ) -> jnp.ndarray:
+        """
+        Sample actions using DDIM with pre-specified noise.
+
+        This is used by DSRL to steer the diffusion policy by providing
+        learned noise instead of random sampling.
+
+        Args:
+            observations: Current observations
+            noise: Pre-specified noise vector (batch, noise_dim)
+                   where noise_dim = action_horizon * action_dim
+
+        Returns:
+            Sampled actions (batch, action_dim)
+        """
+        batch_size = jax.tree_util.tree_leaves(observations)[0].shape[0]
+        action_horizon = self.config["action_horizon"]
+        action_dim = self.config["action_dim"]
+
+        # Reshape noise to (batch, action_horizon, action_dim)
+        actions = noise.reshape(batch_size, action_horizon, action_dim)
+
+        # DDIM denoising loop (JIT-compatible version)
+        # Use pre-computed timesteps list (Python ints, not traced)
+        alphas_cumprod = self.noise_schedule.alphas_cumprod
+        num_steps = len(self.timesteps_list)
+
+        for i, t in enumerate(self.timesteps_list):
+            # JIT-compiled forward pass
+            predicted_noise = self._forward_pass_jitted(
+                observations=observations,
+                noisy_actions=actions,
+                timestep=jnp.full((batch_size,), t, dtype=jnp.int32),
+                num_inference_steps=num_steps,
+            )
+
+            # DDIM step - t is now a Python int, not a traced value
+            alpha_prod_t = alphas_cumprod[t]
+
+            # Get next timestep's alpha
+            if i + 1 < num_steps:
+                t_next = self.timesteps_list[i + 1]
+                alpha_prod_t_prev = alphas_cumprod[t_next]
+            else:
+                alpha_prod_t_prev = jnp.ones_like(alpha_prod_t)
+
+            # Predict x_0
+            pred_original_sample = (
+                actions - jnp.sqrt(1 - alpha_prod_t) * predicted_noise
+            ) / jnp.sqrt(alpha_prod_t)
+
+            # Compute direction pointing to x_t
+            pred_sample_direction = jnp.sqrt(1 - alpha_prod_t_prev) * predicted_noise
+
+            # Compute x_{t-1}
+            actions = jnp.sqrt(alpha_prod_t_prev) * pred_original_sample + pred_sample_direction
+
+        # Return only the first action in the sequence
         return actions[:, 0, :]
 
     @jax.jit
@@ -396,11 +460,15 @@ class BCDiffusionAgent(flax.struct.PyTreeNode):
             action_dim=action_dim,
         )
 
+        # Pre-compute timesteps as Python list for JIT compatibility
+        timesteps_list = [int(t) for t in ddim_sampler.timesteps]
+
         agent = cls(
             state=state,
             config=config,
             noise_schedule=noise_schedule,
             ddim_sampler=ddim_sampler,
+            timesteps_list=timesteps_list,
         )
 
         # Load pretrained weights if using pretrained encoder

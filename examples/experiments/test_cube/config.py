@@ -12,8 +12,8 @@ from franka_env.envs.franka_env import DefaultEnvConfig
 from serl_launcher.wrappers.serl_obs_wrappers import SERLObsWrapper
 from serl_launcher.wrappers.chunking import ChunkingWrapper
 
-from experiments.config import DefaultTrainingConfig
-from experiments.test_cube.wrapper import TestCubeEnv
+from examples.experiments.config import DefaultTrainingConfig
+from examples.experiments.test_cube.wrapper import TestCubeEnv
 
 class EnvConfig(DefaultEnvConfig):
     SERVER_URL = "http://127.0.0.1:5000/"  # Update to your robot server URL
