@@ -233,15 +233,14 @@ class FrankaEnv(gym.Env):
         )
         pose[3:] = Rotation.from_euler("xyz", euler).as_quat()
 
-        ### Clipping for bowl
-
-        bowl_y = -0.1
-        bowl_x_low = 0.35
-        bowl_x_high = 0.6
-        if pose[1] > bowl_y and (pose[0] > bowl_x_low and pose[0] < bowl_x_high):
-            # implies that gripper is close to bowl so make sure the height is high enough
-            min_z = 0.1
-            pose[2] = max(pose[2], min_z)
+        ### Clipping for bowl (commented out for shirt_unbutton)
+        # bowl_y = -0.1
+        # bowl_x_low = 0.35
+        # bowl_x_high = 0.6
+        # if pose[1] > bowl_y and (pose[0] > bowl_x_low and pose[0] < bowl_x_high):
+        #     # implies that gripper is close to bowl so make sure the height is high enough
+        #     min_z = 0.1
+        #     pose[2] = max(pose[2], min_z)
 
         return pose
 
@@ -523,18 +522,21 @@ class FrankaEnv(gym.Env):
         # print(f"gripper act: ", gripper_act)
         # print("--")
         if mode == "binary":
-            if (pos <= -0.5) and (self.curr_gripper_pos > 0.85) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # close gripper
+            # Debug: print gripper state
+            if abs(pos) > 0.3:  # Only print when gripper command is active
+                print(f"[DEBUG] gripper cmd: pos={pos:.2f}, curr_gripper_pos={self.curr_gripper_pos:.2f}")
+            if (pos <= -0.5) and (self.curr_gripper_pos > 0.1) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # close gripper
                 print_yellow("close.")
                 requests.post(self.url + "close_gripper")
                 self.last_gripper_act = time.time()
                 time.sleep(self.gripper_sleep)
-            elif (pos >= 0.5) and (self.curr_gripper_pos < 0.85) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # open gripper
+            elif (pos >= 0.5) and (self.curr_gripper_pos < 0.95) and (time.time() - self.last_gripper_act > self.gripper_sleep):  # open gripper
                 print_yellow("open.")
                 # requests.post(self.url + "reset_gripper")
                 requests.post(self.url + "open_gripper")
                 self.last_gripper_act = time.time()
                 time.sleep(self.gripper_sleep)
-            else: 
+            else:
                 return
         elif mode == "continuous":
             raise NotImplementedError("Continuous gripper control is optional")

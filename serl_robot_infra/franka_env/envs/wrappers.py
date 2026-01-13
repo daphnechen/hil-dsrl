@@ -212,8 +212,11 @@ class SpacemouseIntervention(gym.ActionWrapper):
         super().__init__(env)
 
         self.gripper_enabled = True
+        self.xyz_only = False  # 4D action space: xyz + gripper (no rotation)
         if self.action_space.shape == (6,):
             self.gripper_enabled = False
+        elif self.action_space.shape == (4,):
+            self.xyz_only = True  # 4D: xyz + gripper
 
         self.expert = SpaceMouseExpert()
         self.left, self.right = False, False
@@ -229,10 +232,16 @@ class SpacemouseIntervention(gym.ActionWrapper):
         Output:
         - action: spacemouse action if nonezero; else, policy action
         """
-        expert_a, buttons = self.expert.get_action()
-        self.left, self.right = tuple(buttons)
+        expert_a, buttons = self.expert.get_action()  # 6D: xyz + rpy
+        if any(buttons):  # Debug: print when any button is pressed
+            print(f"[DEBUG] buttons: {buttons}")
+        self.right, self.left = tuple(buttons)  # swapped - test if this fixes button mapping
         intervened = False
-        
+
+        # For 4D action space, only use xyz from spacemouse (ignore rotation)
+        if self.xyz_only:
+            expert_a = expert_a[:3]  # Keep only xyz
+
         if np.linalg.norm(expert_a) > 0.001:
             intervened = True
 
@@ -510,11 +519,11 @@ class Useless4To7Wrapper(gym.ActionWrapper):
         low = self.reverse_action(env.action_space.low)
         high = self.reverse_action(env.action_space.high)
         self.action_space = Box(low=low, high=high)
-    
+
     def reverse_action(self, action: np.ndarray):
         assert action.shape == (4,), f"{action.shape}"
         return np.concatenate([action[:3], np.zeros((3,)), action[3:]], axis=0)
-    
+
     def action(self, action: np.ndarray):
         assert action.shape == (7,), f"{action.shape}"
         return np.concatenate([action[:3], action[6:]], axis=0)
@@ -524,6 +533,38 @@ class Useless4To7Wrapper(gym.ActionWrapper):
         if 'intervene_action' in info:
             info['intervene_action'] = self.reverse_action(info['intervene_action'])
         return next_obs, rew, done, truncated, info
+
+
+class XYZGripperActionWrapper(gym.ActionWrapper):
+    """
+    Reduces action space from 7D (xyz, rpy, gripper) to 4D (xyz, gripper).
+    Rotation is fixed at zero delta.
+    """
+    def __init__(self, env: gym.Env):
+        super().__init__(env)
+        assert isinstance(env.action_space, gym.spaces.Box)
+        assert env.action_space.shape == (7,), f"Expected 7D action space, got {env.action_space.shape}"
+        # New action space: [x, y, z, gripper]
+        self.action_space = Box(
+            low=np.array([-1, -1, -1, -1], dtype=np.float32),
+            high=np.array([1, 1, 1, 1], dtype=np.float32),
+        )
+
+    def action(self, action: np.ndarray) -> np.ndarray:
+        """Expand 4D action to 7D with zero rotation."""
+        assert action.shape == (4,), f"Expected 4D action, got {action.shape}"
+        full_action = np.zeros(7, dtype=np.float32)
+        full_action[:3] = action[:3]   # xyz
+        full_action[6] = action[3]     # gripper
+        return full_action
+
+    def step(self, action: np.ndarray):
+        obs, rew, done, truncated, info = self.env.step(self.action(action))
+        if 'intervene_action' in info:
+            # Convert intervention back to 4D for consistency
+            full_intervene = info['intervene_action']
+            info['intervene_action'] = np.concatenate([full_intervene[:3], full_intervene[6:7]])
+        return obs, rew, done, truncated, info
 
 
 class BruhImageResizingWrapper(gym.ObservationWrapper):

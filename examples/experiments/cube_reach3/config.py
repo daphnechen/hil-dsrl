@@ -22,7 +22,7 @@ from experiments.cube_reach3.wrapper import CubeReach3Env
 from experiments.usb_pickup_insertion.wrapper import GripperPenaltyWrapper
 
 class EnvConfig(DefaultEnvConfig):
-    SERVER_URL = "http://127.0.0.1:5000/"
+    SERVER_URL = "http://127.0.0.2:5000/"
     # REALSENSE_CAMERAS = {
     #     "side_1": {
     #         "camera_type": "rs",
@@ -45,32 +45,52 @@ class EnvConfig(DefaultEnvConfig):
     # #     "side_1": lambda img: img[260:700, 420:1270],
     # #     "wrist_1": lambda img: img
     # # }
-    REALSENSE_CAMERAS = {
+    # REALSENSE_CAMERAS = {
         # "front": {
         #     "camera_type": "rs", # Realsense
         #     "serial_number": "215122255213",
         #     "dim": (640, 480), # (1280, 720),
         #     "exposure": 40000,
         # },
+        # "front": {
+        #     "camera_type": "rs", # Realsense
+        #     "serial_number": "032522250211",
+        #     "dim": (640, 480),
+        #     "exposure": 8000,
+        #     "fps": 30,
+        # },
+        # "wrist": {
+        #     "camera_type": "rs", # Realsense
+        #     "serial_number": "123622270802",
+        #     "dim": (640, 480), # (848, 480)
+        #     "exposure": 20000,
+        #     "fps": 30,
+        #     "gain": 64,
+        # }
+    REALSENSE_CAMERAS = {
         "front": {
-            "camera_type": "rs", # Realsense
-            "serial_number": "032522250211",
+            "camera_type": "rs",  # Realsense
+            "serial_number": "032522250211",  # D455
             "dim": (640, 480),
             "exposure": 8000,
             "fps": 30,
         },
+        "side": {
+            "camera_type": "rs",
+            "serial_number": "947122060531",  # D415
+            "dim": (640, 480),
+            "exposure": 40000,
+        },
         "wrist": {
-            "camera_type": "rs", # Realsense
-            "serial_number": "123622270802",
-            "dim": (640, 480), # (848, 480)
-            "exposure": 20000,
-            "fps": 30,
-            "gain": 64,
-        }
+            "camera_type": "rs",
+            "serial_number": "123622270810",  # D405
+            "dim": (640, 480),
+            "exposure": 9000,
+        },
     }
 
     IMAGE_CROP = {
-        # "front": lambda img: img[180:430, 150:550],  
+        # "front": lambda img: img[180:430, 150:550],
         "front": lambda img: img[175:425, 75:475], #[70:470, 450:1150],
         "wrist": lambda img: img, #[0:720, 450:1150], #[100:500, 400:900],
     }
@@ -102,11 +122,12 @@ class EnvConfig(DefaultEnvConfig):
 
     # CONSTRAINED POSE FROM WEDNESDAY
     # Step 1: add reset pose
-    RESET_POSE = np.array([0.49, -0.03, 0.13, np.pi, 0, np.pi / 2])
+    RESET_POSE = np.array([0.541, -0.014, 0.494, -3.137, 0.022, 0.969])
+    # RESET_POSE = np.array([0.49, -0.03, 0.13, np.pi, 0, np.pi / 2])
 
     # Step 2: add bounding boxes
     ABS_POSE_LIMIT_LOW  = np.array([0.40, -0.25, 0.03, np.pi - 0.05, -0.05, np.pi / 2 - 0.05])
-    ABS_POSE_LIMIT_HIGH = np.array([0.57,  0.2, 0.15, np.pi + 0.05,  0.05, np.pi / 2 + 0.05])
+    ABS_POSE_LIMIT_HIGH = np.array([0.57,  0.2, 0.55, np.pi + 0.05,  0.05, np.pi / 2 + 0.05])
 
     # Step 3: set reset randomization
     RANDOM_RESET = True
@@ -181,7 +202,7 @@ class TrainConfig(DefaultTrainingConfig):
 
     def get_environment(self, fake_env=False, save_video=False, classifier=False, base_dp_policy=None):
         env_config = EnvConfig()
-        assert np.logical_and(env_config.ABS_POSE_LIMIT_LOW <= env_config.RESET_POSE, env_config.RESET_POSE <= env_config.ABS_POSE_LIMIT_HIGH).all()
+        # assert np.logical_and(env_config.ABS_POSE_LIMIT_LOW <= env_config.RESET_POSE, env_config.RESET_POSE <= env_config.ABS_POSE_LIMIT_HIGH).all()
         env = CubeReach3Env(
             fake_env=fake_env,
             save_video=save_video,

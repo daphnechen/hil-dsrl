@@ -7,6 +7,7 @@ from experiments.cube_reach2.config import TrainConfig as CubeReach2TrainConfig
 from experiments.cube_reach3.config import TrainConfig as CubeReach3TrainConfig
 from experiments.one_leg.config import TrainConfig as OneLegConfig
 from experiments.franka_sim.config import TrainConfig as FrankaSimTrainConfig
+from experiments.shirt_unbutton.config import TrainConfig as ShirtUnbuttonTrainConfig
 
 CONFIG_MAPPING = {
                 "ram_insertion": RAMInsertionTrainConfig,
@@ -18,4 +19,5 @@ CONFIG_MAPPING = {
                 "cube_reach3": CubeReach3TrainConfig,
                 "one_leg": OneLegConfig,
                 "franka_sim": FrankaSimTrainConfig,
+                "shirt_unbutton": ShirtUnbuttonTrainConfig,
                }
