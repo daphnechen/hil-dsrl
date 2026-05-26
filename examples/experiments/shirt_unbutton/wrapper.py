@@ -42,6 +42,9 @@ class ShirtUnbuttonEnv(FrankaEnv):
             reset_pose[:2] += np.random.uniform(
                 -self.random_xy_range, self.random_xy_range, (2,)
             )
+            reset_pose[2] += np.random.uniform(
+                -self.random_z_range, self.random_z_range
+            )
             euler_random = self._RESET_POSE[3:].copy()
             euler_random[-1] += np.random.uniform(
                 -self.random_rz_range, self.random_rz_range

@@ -83,6 +83,7 @@ class DefaultEnvConfig:
     RESET_POSE = np.zeros((6,))
     RANDOM_RESET = False
     RANDOM_XY_RANGE = (0.0,)
+    RANDOM_Z_RANGE = (0.0,)
     RANDOM_RZ_RANGE = (0.0,)
     ABS_POSE_LIMIT_HIGH = np.zeros((6,))
     ABS_POSE_LIMIT_LOW = np.zeros((6,))
@@ -128,9 +129,11 @@ class FrankaEnv(gym.Env):
         )
         self._update_currpos()
         self.last_gripper_act = time.time()
+        self.gripper_state = 0  # 0=open, 1=closed - for internal tracking
         self.lastsent = time.time()
         self.randomreset = config.RANDOM_RESET
         self.random_xy_range = config.RANDOM_XY_RANGE
+        self.random_z_range = getattr(config, 'RANDOM_Z_RANGE', 0.0)
         self.random_rz_range = config.RANDOM_RZ_RANGE
         self.hz = hz
         self.joint_reset_cycle = config.JOINT_RESET_PERIOD  # reset the robot joint every 200 cycles
@@ -234,13 +237,13 @@ class FrankaEnv(gym.Env):
         pose[3:] = Rotation.from_euler("xyz", euler).as_quat()
 
         ### Clipping for bowl (commented out for shirt_unbutton)
-        # bowl_y = -0.1
-        # bowl_x_low = 0.35
-        # bowl_x_high = 0.6
-        # if pose[1] > bowl_y and (pose[0] > bowl_x_low and pose[0] < bowl_x_high):
-        #     # implies that gripper is close to bowl so make sure the height is high enough
-        #     min_z = 0.1
-        #     pose[2] = max(pose[2], min_z)
+        bowl_y = -0.06
+        bowl_x_low = 0.4
+        bowl_x_high = 0.6
+        if pose[1] > bowl_y and (pose[0] > bowl_x_low and pose[0] < bowl_x_high):
+            # implies that gripper is close to bowl so make sure the height is high enough
+            min_z = 0.245
+            pose[2] = max(pose[2], min_z)
 
         return pose
 
@@ -269,9 +272,15 @@ class FrankaEnv(gym.Env):
 
         gripper_action = action[6] * self.action_scale[2]
 
-        self.fix_position() # Fixes the gripper moving when grasping bug.
+
         self._send_gripper_command(gripper_action)
         self._send_pos_command(self.clip_safety_box(self.nextpos))
+
+        # self._send_gripper_command(gripper_action)
+        # clipped_pos = self.clip_safety_box(self.nextpos)
+        # if abs(action[2]) > 0.1:  # Debug z movement
+        #     print(f"[DEBUG Z] action_z={action[2]:.3f} currpos_z={self.currpos[2]:.3f} nextpos_z={self.nextpos[2]:.3f} clipped_z={clipped_pos[2]:.3f}")
+        # self._send_pos_command(clipped_pos)
 
         self.curr_path_length += 1
 
@@ -378,6 +387,9 @@ class FrankaEnv(gym.Env):
             reset_pose[:2] += np.random.uniform(
                 -self.random_xy_range, self.random_xy_range, (2,)
             )
+            # reset_pose[2] += np.random.uniform(
+            #     -self.random_z_range, self.random_z_range
+            # )
             euler_random = self._RESET_POSE[3:].copy()
             euler_random[-1] += np.random.uniform(
                 -self.random_rz_range, self.random_rz_range
@@ -521,6 +533,23 @@ class FrankaEnv(gym.Env):
             # print(f"Opening Gripper Command: gs {self.gripper_state}, pos: {pos}")
         # print(f"gripper act: ", gripper_act)
         # print("--")
+        # if mode == "binary":
+        #     # Use internal gripper_state tracking (0=open, 1=closed) instead of unreliable curr_gripper_pos
+        #     # Only act on state change to avoid repeated sleeps
+        #     if (pos <= -0.5) and (self.gripper_state == 0):  # close gripper (currently open)
+        #         print_yellow("close.")
+        #         requests.post(self.url + "close_gripper")
+        #         self.gripper_state = 1
+        #         self.last_gripper_act = time.time()
+        #         time.sleep(self.gripper_sleep)
+        #     elif (pos >= 0.5) and (self.gripper_state == 1):  # open gripper (currently closed)
+        #         print_yellow("open.")
+        #         requests.post(self.url + "open_gripper")
+        #         self.gripper_state = 0
+        #         self.last_gripper_act = time.time()
+        #         time.sleep(self.gripper_sleep)
+        #     else:
+        #         return
         if mode == "binary":
             # Debug: print gripper state
             if abs(pos) > 0.3:  # Only print when gripper command is active

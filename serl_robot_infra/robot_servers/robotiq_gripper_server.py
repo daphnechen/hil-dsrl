@@ -77,13 +77,13 @@ class RobotiqGripperServer(GripperServer):
         elif char == "c":
             command.rPR = 255
             command.rSP = 255
-        
+
         elif char == "cs":
             command.rPR = 255
             command.rSP = 50
 
         elif char == "o":
-            command.rPR = 175
+            command.rPR = 50
             command.rSP = 255
 
         # If the command entered is a int, assign this value to rPR

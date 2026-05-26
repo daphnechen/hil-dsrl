@@ -9,7 +9,7 @@ import numpy as np
 import optax
 from tqdm import tqdm
 from absl import app, flags
-from sklearn.metrics import roc_curve, auc
+# from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 
 from serl_launcher.data.data_store import ReplayBuffer
@@ -218,20 +218,20 @@ def main(_):
         pos_logits = nn.sigmoid(jnp.concatenate(pos_logits, axis=0))
         neg_logits = nn.sigmoid(jnp.concatenate(neg_logits, axis=0))
         # Calculate ROC curve
-        fpr, tpr, _ = roc_curve(all_labels, nn.sigmoid(all_logits))
-        roc_auc = auc(fpr, tpr)
+        # fpr, tpr, _ = roc_curve(all_labels, nn.sigmoid(all_logits))
+        # roc_auc = auc(fpr, tpr)
 
         # Plot ROC curve
-        plt.figure()
-        plt.plot(fpr, tpr, color='blue', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-        plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic')
-        plt.legend(loc='lower right')
-        plt.show()
+        # plt.figure()
+        # plt.plot(fpr, tpr, color='blue', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+        # plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
+        # plt.xlim([0.0, 1.0])
+        # plt.ylim([0.0, 1.05])
+        # plt.xlabel('False Positive Rate')
+        # plt.ylabel('True Positive Rate')
+        # plt.title('Receiver Operating Characteristic')
+        # plt.legend(loc='lower right')
+        # plt.show()
 
         acc1 = ((all_logits>0.8)==(all_labels)).mean()
         plt.hist(pos_logits, bins='auto', alpha=0.5, label="Positive Samples", color="green")
@@ -242,7 +242,7 @@ def main(_):
         breakpoint()
 
     # Calculate and plot ROC after training
-    calculate_logits_and_plot_roc(eval_pos_buffer, eval_neg_buffer, classifier, config)
+    # calculate_logits_and_plot_roc(eval_pos_buffer, eval_neg_buffer, classifier, config)
     
 
 if __name__ == "__main__":

@@ -121,7 +121,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
         for episode in range(FLAGS.eval_n_trajs):
             print("reset start")
             obs, _ = env.reset()
-            time.sleep(7.0)
+            time.sleep(9.0)
             print("reset end")
             done = False
             start_time = time.time()
@@ -345,7 +345,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 transitions_full_trajs = transitions
                 demo_transitions_full_trajs = demo_transitions
                 # input("Waiting for input to proceed...")
-                time.sleep(7.0)
+                time.sleep(9.0)
                 print("reset end")
                 from_time = time.time()
 

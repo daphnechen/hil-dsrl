@@ -142,7 +142,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
             print("reset start")
             ### receive signal from learner and then reset
             obs, _ = env.reset()
-            time.sleep(7.0)
+            time.sleep(9.0)
             obs, _ = env.reset()
             print("reset end")
             done = False
@@ -438,7 +438,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, pref_data_stor
                 transitions_full_trajs = transitions
                 demo_transitions_full_trajs = demo_transitions
                 # input("Waiting for input to proceed...")
-                time.sleep(7.0)
+                time.sleep(9.0)
                 obs, _ = env.reset()
                 # For synchronizing learner and actor...
                 if synchronization and step > learner_step * 10 + 50:

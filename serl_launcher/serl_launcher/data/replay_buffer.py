@@ -45,6 +45,7 @@ class ReplayBuffer(Dataset):
         include_label: Optional[bool] = False,
         include_grasp_penalty: Optional[bool] = False,
         include_timestep: Optional[bool] = False,
+        include_is_intervention: Optional[bool] = False,
     ):
         if next_observation_space is None:
             next_observation_space = observation_space
@@ -72,6 +73,9 @@ class ReplayBuffer(Dataset):
 
         if include_timestep:
             dataset_dict['timestep'] = np.empty((capacity,), dtype=np.float32)
+
+        if include_is_intervention:
+            dataset_dict['is_intervention'] = np.empty((capacity,), dtype=np.float32)
 
         super().__init__(dataset_dict)
 

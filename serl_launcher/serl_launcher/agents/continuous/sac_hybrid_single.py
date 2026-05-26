@@ -221,6 +221,56 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             train=train,
         )
 
+    def forward_optimism_critic(
+        self,
+        observations: Data,
+        actions: jax.Array,
+        rng: PRNGKey,
+        *,
+        grad_params: Optional[Params] = None,
+        train: bool = True,
+    ) -> jax.Array:
+        """
+        Forward pass for the Q-OIL optimism critic ensemble (continuous actions only).
+        Same architecture as the TD critic but with independent parameters. No target
+        network exists for this critic; its Bellman target bootstraps off the TD
+        critic's target_params so the intervention bonus does not propagate backward.
+        """
+        if train:
+            assert rng is not None, "Must specify rng when training"
+        return self.state.apply_fn(
+            {"params": grad_params or self.state.params},
+            observations,
+            actions,
+            name="optimism_critic",
+            rngs={"dropout": rng} if train else {},
+            train=train,
+        )
+
+    def forward_optimism_grasp_critic(
+        self,
+        observations: Data,
+        rng: PRNGKey,
+        *,
+        grad_params: Optional[Params] = None,
+        train: bool = True,
+    ) -> jax.Array:
+        """
+        Forward pass for the Q-OIL optimism grasp critic (discrete gripper DQN).
+        Same architecture as the TD grasp critic but with independent parameters.
+        No target network; its Bellman target bootstraps off the TD grasp critic's
+        target_params and online argmax (Double-DQN) so the bonus stays localized.
+        """
+        if train:
+            assert rng is not None, "Must specify rng when training"
+        return self.state.apply_fn(
+            {"params": grad_params or self.state.params},
+            observations,
+            name="optimism_grasp_critic",
+            rngs={"dropout": rng} if train else {},
+            train=train,
+        )
+
     def forward_target_grasp_critic(
         self,
         observations: Data,
@@ -356,6 +406,84 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
 
         return critic_loss, info
 
+    def optimism_critic_loss_fn(self, batch, params: Params, rng: PRNGKey):
+        """Q-OIL optimism critic loss.
+
+        Same shape as the TD critic loss EXCEPT:
+        - Predicted Q comes from the online optimism critic (`forward_optimism_critic`).
+        - Bellman target bootstraps off the TD critic's target_params (NOT off the
+          optimism critic itself). This is what keeps the bonus localized to actual
+          intervention transitions and prevents leakage to predecessor states.
+        - Target adds a per-transition bonus = bonus_frac * reward_scale * is_intervention.
+        """
+        batch_size = batch["rewards"].shape[0]
+        actions = batch["actions"][..., :-1]
+
+        rng, next_action_sample_key = jax.random.split(rng)
+        next_actions, next_actions_log_probs = self._compute_next_actions(
+            batch, next_action_sample_key
+        )
+
+        target_next_qs = self.forward_target_critic(
+            batch["next_observations"],
+            next_actions,
+            rng=rng,
+        )  # (critic_ensemble_size, batch_size)
+
+        if self.config["critic_subsample_size"] is not None:
+            rng, subsample_key = jax.random.split(rng)
+            subsample_idcs = jax.random.randint(
+                subsample_key,
+                (self.config["critic_subsample_size"],),
+                0,
+                self.config["critic_ensemble_size"],
+            )
+            target_next_qs = target_next_qs[subsample_idcs]
+
+        target_next_min_q = target_next_qs.min(axis=0)
+        chex.assert_shape(target_next_min_q, (batch_size,))
+
+        target_q_td = (
+            batch["rewards"]
+            + self.config["discount"] * batch["masks"] * target_next_min_q
+        )
+
+        if self.config["backup_entropy"]:
+            temperature = self.forward_temperature()
+            target_q_td = target_q_td - temperature * next_actions_log_probs
+
+        bonus_abs = jnp.array(
+            self.config.get("bonus_frac", 0.025)
+            * self.config.get("reward_scale", 1.0),
+            dtype=jnp.float32,
+        )
+        is_intervention = jnp.asarray(batch["is_intervention"], dtype=jnp.float32)
+        chex.assert_shape(is_intervention, (batch_size,))
+        target_q_opt = target_q_td + bonus_abs * is_intervention
+        chex.assert_shape(target_q_opt, (batch_size,))
+
+        predicted_qs = self.forward_optimism_critic(
+            batch["observations"], actions, rng=rng, grad_params=params
+        )
+        chex.assert_shape(
+            predicted_qs, (self.config["critic_ensemble_size"], batch_size)
+        )
+        target_qs = target_q_opt[None].repeat(
+            self.config["critic_ensemble_size"], axis=0
+        )
+        chex.assert_equal_shape([predicted_qs, target_qs])
+        optimism_critic_loss = jnp.mean((predicted_qs - target_qs) ** 2)
+
+        info = {
+            "optimism_critic_loss": optimism_critic_loss,
+            "predicted_opt_qs": jnp.mean(predicted_qs),
+            "target_opt_qs": jnp.mean(target_qs),
+            "bonus_abs": bonus_abs,
+            "is_intervention_frac": is_intervention.mean(),
+        }
+
+        return optimism_critic_loss, info
+
 
     def grasp_critic_loss_fn(self, batch, params: Params, rng: PRNGKey):
         """classes that inherit this class can change this function"""
@@ -415,6 +543,79 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
 
         return grasp_critic_loss, info
 
+    def optimism_grasp_critic_loss_fn(self, batch, params: Params, rng: PRNGKey):
+        """Q-OIL optimism grasp critic loss (gripper DQN).
+
+        Mirrors `grasp_critic_loss_fn` (Double-DQN), EXCEPT:
+        - Bellman target bootstraps off the TD grasp critic's target_params and uses
+          the TD online grasp critic for argmax. The optimism grasp critic NEVER
+          bootstraps off itself - this keeps the bonus localized to actual
+          intervention transitions.
+        - Predicted Q comes from the online optimism grasp critic via params.
+        - Target adds bonus_abs * is_intervention.
+        """
+        batch_size = batch["rewards"].shape[0]
+        grasp_action = (batch["actions"][..., -1]).astype(jnp.int16) + 1
+
+        # Target eval from TD grasp critic's slow copy.
+        target_next_grasp_qs = self.forward_target_grasp_critic(
+            batch["next_observations"],
+            rng=rng,
+        )
+        chex.assert_shape(target_next_grasp_qs, (batch_size, 3))
+
+        # Online argmax from TD grasp critic (Double-DQN, TD side).
+        next_grasp_qs = self.forward_grasp_critic(
+            batch["next_observations"],
+            rng=rng,
+        )
+        best_next_grasp_action = next_grasp_qs.argmax(axis=-1)
+        chex.assert_shape(best_next_grasp_action, (batch_size,))
+
+        target_next_grasp_q = target_next_grasp_qs[
+            jnp.arange(batch_size), best_next_grasp_action
+        ]
+        chex.assert_shape(target_next_grasp_q, (batch_size,))
+
+        grasp_rewards = batch["rewards"] + batch["grasp_penalty"]
+        target_grasp_q_td = (
+            grasp_rewards
+            + self.config["discount"] * batch["masks"] * target_next_grasp_q
+        )
+
+        bonus_abs = jnp.array(
+            self.config.get("bonus_frac", 0.025)
+            * self.config.get("reward_scale", 1.0),
+            dtype=jnp.float32,
+        )
+        is_intervention = jnp.asarray(batch["is_intervention"], dtype=jnp.float32)
+        chex.assert_shape(is_intervention, (batch_size,))
+        target_grasp_q_opt = target_grasp_q_td + bonus_abs * is_intervention
+        chex.assert_shape(target_grasp_q_opt, (batch_size,))
+
+        predicted_grasp_qs = self.forward_optimism_grasp_critic(
+            batch["observations"],
+            rng=rng,
+            grad_params=params,
+        )
+        chex.assert_shape(predicted_grasp_qs, (batch_size, 3))
+
+        predicted_grasp_q = predicted_grasp_qs[jnp.arange(batch_size), grasp_action]
+        chex.assert_shape(predicted_grasp_q, (batch_size,))
+
+        chex.assert_equal_shape([predicted_grasp_q, target_grasp_q_opt])
+        optimism_grasp_critic_loss = jnp.mean(
+            (predicted_grasp_q - target_grasp_q_opt) ** 2
+        )
+
+        info = {
+            "optimism_grasp_critic_loss": optimism_grasp_critic_loss,
+            "predicted_opt_grasp_qs": jnp.mean(predicted_grasp_q),
+            "target_opt_grasp_qs": jnp.mean(target_grasp_q_opt),
+        }
+
+        return optimism_grasp_critic_loss, info
+
     def policy_loss_fn(self, batch, bc_batch, params: Params, rng: PRNGKey, current_step: Optional[int] = None):
         batch_size = batch["rewards"].shape[0]
         temperature = self.forward_temperature()
@@ -425,11 +626,20 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         )
         actions, log_probs = action_distributions.sample_and_log_prob(seed=sample_rng)
 
-        predicted_qs = self.forward_critic(
-            batch["observations"],
-            actions,
-            rng=critic_rng,
-        )
+        # Q-OIL: policy extraction switches from the TD critic to the optimism critic
+        # so the optimistic signal biases exploration toward intervention regions.
+        if self.config.get("use_optimism_critic", False):
+            predicted_qs = self.forward_optimism_critic(
+                batch["observations"],
+                actions,
+                rng=critic_rng,
+            )
+        else:
+            predicted_qs = self.forward_critic(
+                batch["observations"],
+                actions,
+                rng=critic_rng,
+            )
         predicted_q = predicted_qs.mean(axis=0)
         chex.assert_shape(predicted_q, (batch_size,))
         chex.assert_shape(log_probs, (batch_size,))
@@ -472,16 +682,24 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
                 # bc_weights = jnp.power(decay_base, timestep) # [BATCH_SIZE]
                 raise ValueError("current_step must be provided when using BC loss.")
             # jax.debug.print(bc_weights)
+            bc_loss_coeff = jnp.array(
+                self.config.get("bc_loss_coeff", 1.0), dtype=jnp.float32
+            )
             dist = self.forward_policy(o_pre, rng=bc_rng, grad_params=params)
             target_actions = a_exp[:,:-1]
             target_actions = jnp.clip(target_actions, -0.999, 0.999)  # Ensure actions are within valid range for tanh-squashed distribution
             bc_loss = (-dist.log_prob(target_actions) * bc_weights).mean()
-            actor_loss += bc_loss
+            actor_loss += bc_loss_coeff * bc_loss
 
             beta = 0.1
             a_exp_grasp = jnp.array(jnp.round(a_exp[:,-1] + 1), dtype=jnp.int32)
             # chex.assert_shape(a_exp_grasp, (N,))
-            grasp_qs = self.forward_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
+            # Q-OIL: BC trains the optimism grasp critic (the implicit policy used
+            # at inference for the gripper) instead of the TD grasp critic.
+            if self.config.get("use_optimism_critic", False):
+                grasp_qs = self.forward_optimism_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
+            else:
+                grasp_qs = self.forward_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
             # chex.assert_shape(grasp_qs, (N, 3))
             grasp_logprobs = jax.nn.log_softmax(grasp_qs / beta, axis=1)
             # chex.assert_shape(grasp_logprobs, (N, 3))
@@ -490,13 +708,14 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             # Apply timestep decay weights to grasp loss as well
             bc_grasp_loss = (bc_grasp_loss * bc_weights).mean()
 
-            actor_loss += bc_grasp_loss
+            actor_loss += bc_loss_coeff * bc_grasp_loss
 
             info = info | {
                 "bc_loss": bc_loss,
                 "bc_grasp_loss": bc_grasp_loss,
                 "bc_loss_total": bc_loss + bc_grasp_loss,
                 "bc_weights_mean": bc_weights.mean(),
+                "bc_loss_coeff": bc_loss_coeff,
             }
 
         return actor_loss, info
@@ -525,6 +744,14 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "actor": partial(self.policy_loss_fn, batch, bc_batch, current_step=current_step),
             "temperature": partial(self.temperature_loss_fn, batch),
         }
+
+        if self.config.get("use_optimism_critic", False):
+            loss_dict["optimism_critic"] = partial(
+                self.optimism_critic_loss_fn, batch
+            )
+            loss_dict["optimism_grasp_critic"] = partial(
+                self.optimism_grasp_critic_loss_fn, batch
+            )
 
         return loss_dict
 
@@ -555,7 +782,6 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         """
         batch_size = batch["rewards"].shape[0]
         chex.assert_tree_shape_prefix(batch, (batch_size,))
-        chex.assert_shape(batch["actions"], (batch_size, 7))
 
         if len(self.config["image_keys"]) > 0 and self.config["image_keys"][0] not in batch["next_observations"]:
             batch = _unpack(batch)
@@ -620,7 +846,11 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         beta = 0.1
         a_exp_grasp = jnp.array(jnp.round(a_exp[:,-1] + 1), dtype=jnp.int32)
         # chex.assert_shape(a_exp_grasp, (N,))
-        grasp_qs = self.forward_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
+        # Q-OIL: BC trains the optimism grasp critic (used at inference) when enabled.
+        if self.config.get("use_optimism_critic", False):
+            grasp_qs = self.forward_optimism_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
+        else:
+            grasp_qs = self.forward_grasp_critic(o_pre, rng=bc_grasp_rng, grad_params=params)
         # chex.assert_shape(grasp_qs, (N, 3))
         grasp_logprobs = jax.nn.log_softmax(grasp_qs / beta, axis=1)
         # chex.assert_shape(grasp_logprobs, (N, 3))
@@ -640,6 +870,8 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
     @jax.jit
     def update_bc(self, bc_batch, pmap_axis = None):
         loss_fn_keys = ["critic", "grasp_critic", "actor", "temperature"]
+        if self.config.get("use_optimism_critic", False):
+            loss_fn_keys.extend(["optimism_critic", "optimism_grasp_critic"])
         loss_fns = {k: lambda params, rng: (0.0, {}) for k in loss_fn_keys}
         loss_fns["actor"] = partial(self.loss_bc, bc_batch)
         new_state, info = self.state.apply_loss_fns(
@@ -670,7 +902,12 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             ee_actions = dist.sample(seed=seed)
 
         seed, grasp_key = jax.random.split(seed, 2)
-        grasp_q_values = self.forward_grasp_critic(observations, rng=grasp_key, train=False)
+        # Q-OIL: gripper "policy" is argmax of the optimism grasp critic
+        # (the optimistic signal biases exploration toward intervention regions).
+        if self.config.get("use_optimism_critic", False):
+            grasp_q_values = self.forward_optimism_grasp_critic(observations, rng=grasp_key, train=False)
+        else:
+            grasp_q_values = self.forward_grasp_critic(observations, rng=grasp_key, train=False)
 
         # Select grasp actions based on the grasp Q-values
         grasp_action = grasp_q_values.argmax(axis=-1)
@@ -689,6 +926,8 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         critic_def: nn.Module,
         grasp_critic_def: nn.Module,
         temperature_def: nn.Module,
+        optimism_critic_def: Optional[nn.Module] = None,
+        optimism_grasp_critic_def: Optional[nn.Module] = None,
         # Optimizer
         actor_optimizer_kwargs={
             "learning_rate": 3e-4,
@@ -713,14 +952,30 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         image_keys: Iterable[str] = None,
         augmentation_function: Optional[callable] = None,
         reward_bias: float = 0.0,
+        # Q-OIL knobs (only consumed when optimism_critic_def is not None)
+        use_optimism_critic: bool = False,
+        bonus_frac: float = 0.025,
+        bc_loss_coeff: float = 1.0,
+        reward_scale: float = 1.0,
         **kwargs,
     ):
+        if use_optimism_critic:
+            assert optimism_critic_def is not None, (
+                "use_optimism_critic=True requires passing optimism_critic_def."
+            )
+            assert optimism_grasp_critic_def is not None, (
+                "use_optimism_critic=True requires passing optimism_grasp_critic_def."
+            )
+
         networks = {
             "actor": actor_def,
             "critic": critic_def,
             "grasp_critic": grasp_critic_def,
             "temperature": temperature_def,
         }
+        if use_optimism_critic:
+            networks["optimism_critic"] = optimism_critic_def
+            networks["optimism_grasp_critic"] = optimism_grasp_critic_def
 
         model_def = ModuleDict(networks)
 
@@ -731,6 +986,9 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "grasp_critic": make_optimizer(**grasp_critic_optimizer_kwargs),
             "temperature": make_optimizer(**temperature_optimizer_kwargs),
         }
+        if use_optimism_critic:
+            txs["optimism_critic"] = make_optimizer(**critic_optimizer_kwargs)
+            txs["optimism_grasp_critic"] = make_optimizer(**grasp_critic_optimizer_kwargs)
 
         rng, init_rng = jax.random.split(rng)
 
@@ -741,10 +999,17 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             "grasp_critic": [observations],
             "temperature": [],
         }
+        if use_optimism_critic:
+            init_dict["optimism_critic"] = [observations, actions[..., :-1]]
+            init_dict["optimism_grasp_critic"] = [observations]
 
         params = model_def.init(init_rng, **init_dict)["params"]
 
         rng, create_rng = jax.random.split(rng)
+        # NOTE: target_params will include an `optimism_critic` subtree that is
+        # polyak-updated alongside the TD critic (wasted compute) but is NEVER read.
+        # The optimism critic loss bootstraps off the TD `target_critic`, not its own
+        # target — this is the key design choice that keeps the bonus localized.
         state = JaxRLTrainState.create(
             apply_fn=model_def.apply,
             params=params,
@@ -769,6 +1034,10 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             image_keys=image_keys,
             reward_bias=reward_bias,
             augmentation_function=augmentation_function,
+            use_optimism_critic=use_optimism_critic,
+            bonus_frac=bonus_frac,
+            bc_loss_coeff=bc_loss_coeff,
+            reward_scale=reward_scale,
             **kwargs,
         )
 
@@ -806,6 +1075,10 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         augmentation_function: Optional[callable] = None,
         has_image: bool = True,
         bc_timestep_decay: float = 0.0,
+        use_optimism_critic: bool = False,
+        bonus_frac: float = 0.025,
+        bc_loss_coeff: float = 1.0,
+        reward_scale: float = 1.0,
         **kwargs,
     ):
         """
@@ -875,10 +1148,33 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             Critic, encoder=encoders["critic"], network=critic_backbone
         )(name="critic")
 
+        if use_optimism_critic:
+            # Same architecture, independent ensemble parameters. Shares the encoder
+            # with the TD critic (matches the actor/critic encoder sharing pattern).
+            optimism_critic_backbone = partial(MLP, **critic_network_kwargs)
+            optimism_critic_backbone = ensemblize(
+                optimism_critic_backbone, critic_ensemble_size
+            )(name="optimism_critic_ensemble")
+            optimism_critic_def = partial(
+                Critic, encoder=encoders["critic"], network=optimism_critic_backbone
+            )(name="optimism_critic")
+        else:
+            optimism_critic_def = None
+
         grasp_critic_backbone = MLP(**grasp_critic_network_kwargs)
         grasp_critic_def = partial(
             GraspCritic, encoder=encoders["grasp_critic"], network=grasp_critic_backbone
         )(name="grasp_critic")
+
+        if use_optimism_critic:
+            optimism_grasp_critic_backbone = MLP(**grasp_critic_network_kwargs)
+            optimism_grasp_critic_def = partial(
+                GraspCritic,
+                encoder=encoders["grasp_critic"],
+                network=optimism_grasp_critic_backbone,
+            )(name="optimism_grasp_critic")
+        else:
+            optimism_grasp_critic_def = None
 
         policy_def = Policy(
             encoder=encoders["actor"],
@@ -903,11 +1199,17 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
             critic_def=critic_def,
             grasp_critic_def=grasp_critic_def,
             temperature_def=temperature_def,
+            optimism_critic_def=optimism_critic_def,
+            optimism_grasp_critic_def=optimism_grasp_critic_def,
             critic_ensemble_size=critic_ensemble_size,
             critic_subsample_size=critic_subsample_size,
             image_keys=image_keys,
             augmentation_function=augmentation_function,
             bc_timestep_decay=bc_timestep_decay,
+            use_optimism_critic=use_optimism_critic,
+            bonus_frac=bonus_frac,
+            bc_loss_coeff=bc_loss_coeff,
+            reward_scale=reward_scale,
             **kwargs,
         )
 

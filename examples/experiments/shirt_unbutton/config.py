@@ -23,42 +23,33 @@ class EnvConfig(DefaultEnvConfig):
     SERVER_URL = "http://127.0.0.2:5000/"
 
     # Camera configuration
-    # D405 (wrist) - small close-range camera
-    # D415 (side) - standard depth camera
-    # D455 (front) - wide FOV camera (available if needed)
+
     REALSENSE_CAMERAS = {
-        "side": {
-            "camera_type": "rs",
-            "serial_number": "947122060531",  # D415
-            "dim": (640, 480),
-            "exposure": 40000,
-        },
         "wrist": {
-            "camera_type": "rs",
-            "serial_number": "123622270810",  # D405
-            "dim": (640, 480),
+            "camera_type": "zed",
+            "serial_number": "16744838",      # ZED-M
+            "dim": (1280, 720),
             "exposure": 9000,
         },
     }
 
     # Image cropping - adjust based on camera views
-    # View camera feed and adjust crop regions as needed
     IMAGE_CROP = {
-        "side": lambda img: img[70:470, 450:1150],
-        "wrist": lambda img: img[50:550, 150:1200],
+        "wrist": lambda img: img[:, 200:],    # ZED-M wrist crop (mirrors pen_in_bowl)
     }
 
     # Robot poses - collect using: curl -X POST http://127.0.0.2:5000/getpos_euler
-    RESET_POSE = np.array([0.541, -0.014, 0.494, -3.137, 0.022, 0.969])
+    # Diagonal gripper orientation (rx=-2.582, ry=-0.026, rz=0.122) for easier grasping
+    RESET_POSE = np.array([0.584, -0.202, 0.487, -2.582, -0.026, 0.122])
 
-    # Safety bounding box - robot cannot move outside these limits
-    # Using same bounds as cube_reach3
-    ABS_POSE_LIMIT_LOW  = np.array([0.40, -0.25, 0.03, np.pi - 0.05, -0.05, np.pi / 2 - 0.05])
-    ABS_POSE_LIMIT_HIGH = np.array([0.57,  0.2, 0.55, np.pi + 0.05,  0.05, np.pi / 2 + 0.05])
+    # Safety bounding box - disabled (very wide limits)
+    ABS_POSE_LIMIT_LOW  = np.array([-10.0, -10.0, -10.0, -np.pi, -np.pi, -np.pi])
+    ABS_POSE_LIMIT_HIGH = np.array([ 10.0,  10.0,  10.0,  np.pi,  np.pi,  np.pi])
 
-    # Reset randomization - set to True once you have basic task working
-    RANDOM_RESET = False
-    RANDOM_XY_RANGE = 0.0
+    # Reset randomization - small xyz randomization for robustness
+    RANDOM_RESET = True
+    RANDOM_XY_RANGE = 0.02
+    RANDOM_Z_RANGE = 0.02
     RANDOM_RZ_RANGE = 0.0
 
     # Action scaling: (position, rotation, gripper)
@@ -66,7 +57,8 @@ class EnvConfig(DefaultEnvConfig):
     ACTION_SCALE = np.array([0.1, 0.3, 1])
 
     DISPLAY_IMAGE = True
-    MAX_EPISODE_LENGTH = 200  # Adjust based on expected task duration
+    MAX_EPISODE_LENGTH = 200
+    GRIPPER_SLEEP = 0.5  # Sleep only on state change
 
     # Compliance parameters for normal operation
     COMPLIANCE_PARAM = {
@@ -77,10 +69,10 @@ class EnvConfig(DefaultEnvConfig):
         "translational_Ki": 0,
         "translational_clip_x": 0.005,
         "translational_clip_y": 0.005,
-        "translational_clip_z": 0.005,
+        "translational_clip_z": 0.002,
         "translational_clip_neg_x": 0.005,
         "translational_clip_neg_y": 0.005,
-        "translational_clip_neg_z": 0.005,
+        "translational_clip_neg_z": 0.005,  # Reduced by 60% (was 0.005)
         "rotational_clip_x": 0.05,
         "rotational_clip_y": 0.05,
         "rotational_clip_z": 0.02,
@@ -114,9 +106,9 @@ class EnvConfig(DefaultEnvConfig):
 
 
 class TrainConfig(DefaultTrainingConfig):
-    # Observation keys - cameras used for policy training
-    image_keys = ["side", "wrist"]
-    classifier_keys = ["side", "wrist"]
+    # Observation keys - cameras used for policy training (wrist-only)
+    image_keys = ["wrist"]
+    classifier_keys = ["wrist"]
     proprio_keys = ["tcp_pose", "tcp_vel", "tcp_force", "tcp_torque", "gripper_pose"]
 
     # Training hyperparameters
@@ -140,7 +132,7 @@ class TrainConfig(DefaultTrainingConfig):
     reward_scale = 1
 
     def get_environment(self, fake_env=False, save_video=False, classifier=False):
-        from franka_env.envs.wrappers import HumanClassifierWrapper
+        from franka_env.envs.wrappers import SuccessKeyWrapper
 
         env_config = EnvConfig()
         # Note: bounds assertion disabled - using cube_reach3 bounds which have
@@ -164,9 +156,8 @@ class TrainConfig(DefaultTrainingConfig):
         # env = LastNGripperActionsWrapper(env, 8)
         env = ChunkingWrapper(env, obs_horizon=1, act_exec_horizon=None)
 
-        # Manual rewards - prompts "Success? (1/0)" at episode end
-        if classifier:
-            env = HumanClassifierWrapper(env)
+        # Manual rewards - press 's' anytime during episode to mark success
+        env = SuccessKeyWrapper(env)
 
         env = GripperPenaltyWrapper(env, penalty=-0.005)
         return env

@@ -75,12 +75,6 @@ class EnvConfig(DefaultEnvConfig):
             "exposure": 8000,
             "fps": 30,
         },
-        "side": {
-            "camera_type": "rs",
-            "serial_number": "947122060531",  # D415
-            "dim": (640, 480),
-            "exposure": 40000,
-        },
         "wrist": {
             "camera_type": "rs",
             "serial_number": "123622270810",  # D405

@@ -57,6 +57,7 @@ def make_sac_pixel_agent(
     reward_bias=0.0,
     target_entropy=None,
     discount=0.97,
+    temperature_init: float = 1e-2,
 ):
     agent = SACAgent.create_pixels(
         jax.random.PRNGKey(seed),
@@ -81,7 +82,7 @@ def make_sac_pixel_agent(
             "use_layer_norm": True,
             "hidden_dims": [256, 256],
         },
-        temperature_init=1e-2,
+        temperature_init=temperature_init,
         discount=discount,
         backup_entropy=False,
         critic_ensemble_size=2,
@@ -156,6 +157,11 @@ def make_sac_pixel_agent_hybrid_single_arm(
     has_image: bool = True,
     use_bc_loss: bool = False,
     bc_timestep_decay: float = 0.0,
+    temperature_init: float = 1e-2,
+    use_optimism_critic: bool = False,
+    bonus_frac: float = 0.025,
+    bc_loss_coeff: float = 1.0,
+    reward_scale: float = 1.0,
 ):
     if enable_cl:
         assert soft_cl is not None and isinstance(soft_cl, bool)
@@ -193,7 +199,7 @@ def make_sac_pixel_agent_hybrid_single_arm(
             "use_layer_norm": True,
             "hidden_dims": [256, 256],
         },
-        temperature_init=1e-2,
+        temperature_init=temperature_init,
         discount=discount,
         backup_entropy=False,
         critic_ensemble_size=2,
@@ -206,6 +212,10 @@ def make_sac_pixel_agent_hybrid_single_arm(
         has_image=has_image,
         use_bc_loss=use_bc_loss,
         bc_timestep_decay=bc_timestep_decay,
+        use_optimism_critic=use_optimism_critic,
+        bonus_frac=bonus_frac,
+        bc_loss_coeff=bc_loss_coeff,
+        reward_scale=reward_scale,
     )
     return agent
 
@@ -219,6 +229,7 @@ def make_sac_pixel_agent_hybrid_dual_arm(
     reward_bias=0.0,
     target_entropy=None,
     discount=0.97,
+    temperature_init: float = 1e-2,
 ):
     agent = SACAgentHybridDualArm.create_pixels(
         jax.random.PRNGKey(seed),
@@ -248,7 +259,7 @@ def make_sac_pixel_agent_hybrid_dual_arm(
             "use_layer_norm": True,
             "hidden_dims": [256, 256],
         },
-        temperature_init=1e-2,
+        temperature_init=temperature_init,
         discount=discount,
         backup_entropy=False,
         critic_ensemble_size=2,

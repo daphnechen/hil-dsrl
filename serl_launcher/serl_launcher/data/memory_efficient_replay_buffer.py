@@ -19,6 +19,7 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
         include_next_actions: Optional[bool] = False,
         include_grasp_penalty: Optional[bool] = False,
         include_timestep: Optional[bool] = False,
+        include_is_intervention: Optional[bool] = False,
     ):
         self.pixel_keys = pixel_keys
 
@@ -54,6 +55,7 @@ class MemoryEfficientReplayBuffer(ReplayBuffer):
             include_next_actions=include_next_actions,
             include_grasp_penalty=include_grasp_penalty,
             include_timestep=include_timestep,
+            include_is_intervention=include_is_intervention,
         )
 
     def insert(self, data_dict: DatasetDict):

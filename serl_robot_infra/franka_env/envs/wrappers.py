@@ -33,7 +33,62 @@ class HumanClassifierWrapper(gym.Wrapper):
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         return obs, info
-    
+
+
+class SuccessKeyWrapper(gym.Wrapper):
+    """
+    Non-blocking manual reward wrapper.
+    - Press 's' anytime during episode to mark SUCCESS (reward=1)
+    - Press 'f' to end episode early as FAIL (reward=0)
+    - Episode ends without 's' = FAIL (reward=0)
+    """
+    def __init__(self, env):
+        super().__init__(env)
+        self.success_pressed = False
+        self.fail_pressed = False
+        self._start_keyboard_listener()
+
+    def _start_keyboard_listener(self):
+        from pynput import keyboard
+        def on_press(key):
+            try:
+                if hasattr(key, 'char') and key.char == 's':
+                    self.success_pressed = True
+                    print("[SUCCESS] 's' pressed - episode marked as success")
+                elif hasattr(key, 'char') and key.char == 'f':
+                    self.fail_pressed = True
+                    print("[FAIL] 'f' pressed - ending episode early")
+            except AttributeError:
+                pass
+        self.listener = keyboard.Listener(on_press=on_press)
+        self.listener.start()
+
+    def step(self, action):
+        obs, rew, done, truncated, info = self.env.step(action)
+
+        # Early termination on 's' or 'f' press
+        if self.success_pressed or self.fail_pressed:
+            done = True
+
+        if done:
+            if self.success_pressed:
+                rew = 1
+                info['succeed'] = True
+            else:
+                rew = 0
+                info['succeed'] = False
+                if not self.fail_pressed:
+                    print("[FAIL] Episode ended without 's' press")
+
+        return obs, rew, done, truncated, info
+
+    def reset(self, **kwargs):
+        self.success_pressed = False
+        self.fail_pressed = False
+        obs, info = self.env.reset(**kwargs)
+        return obs, info
+
+
 class MultiCameraBinaryRewardClassifierWrapper(gym.Wrapper):
     """
     This wrapper uses the camera images to compute the reward,

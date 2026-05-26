@@ -39,24 +39,28 @@ def main(_):
     cs = 0
     t0 = time.time()
     while success_count < success_needed:
-        actions = np.zeros(env.action_space.sample().shape) 
+        actions = np.zeros(env.action_space.sample().shape)
         next_obs, rew, done, truncated, info = env.step(actions)
         returns += rew
+
+        # Only add transitions with actual interventions (skip zero actions)
         if "intervene_action" in info:
             actions = info["intervene_action"]
-        transition = copy.deepcopy(
-            dict(
-                observations=obs,
-                actions=actions,
-                next_observations=next_obs,
-                rewards=rew,
-                masks=1.0 - done,
-                dones=done,
-                infos=info,
+            transition = copy.deepcopy(
+                dict(
+                    observations=obs,
+                    actions=actions,
+                    next_observations=next_obs,
+                    rewards=rew,
+                    masks=1.0 - done,
+                    dones=done,
+                    infos=info,
+                )
             )
-        )
-        trajectory.append(transition)
-        
+            # Don't add the transition if this is the success step (after 's' press)
+            if not (done and info.get("succeed", False)):
+                trajectory.append(transition)
+
         pbar.set_description(f"Return: {returns}")
 
         obs = next_obs
@@ -73,7 +77,7 @@ def main(_):
             dump_data(transitions)
             print(f"{cs} steps in {time.time() - t0}s")
             print("reset start")
-            time.sleep(12.0)
+            time.sleep(9.0)
             cs = 0
             t0 = time.time()
             print("reset end")

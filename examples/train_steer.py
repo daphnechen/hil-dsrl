@@ -44,7 +44,7 @@ from experiments.mappings import CONFIG_MAPPING
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("exp_name", None, "Name of experiment corresponding to folder.")
-flags.DEFINE_string("method", "steer", "Valid values: hgdagger, hil, steer")
+flags.DEFINE_string("method", "steer", "Valid values: hgdagger, hil, steer, qoil")
 flags.DEFINE_integer("seed", 42, "Random seed.")
 flags.DEFINE_boolean("learner", False, "Whether this is a learner.")
 flags.DEFINE_boolean("actor", False, "Whether this is an actor.")
@@ -58,6 +58,8 @@ flags.DEFINE_float("bc_timestep_decay", 0.0001, "bc timestep decay coefficient (
 flags.DEFINE_boolean("seed_bc_buffer", True, "Whether to add demos to BC buffer.")
 flags.DEFINE_float("temperature_init", 0.01, "Initial temperature value for SAC.")
 flags.DEFINE_boolean("learnable_temperature", True, "Whether temperature is learnable or fixed.")
+flags.DEFINE_float("bonus_frac", 0.025, "Q-OIL: bonus added to optimism critic target as a fraction of reward_scale (bonus_abs = bonus_frac * reward_scale).")
+flags.DEFINE_float("bc_loss_coeff", 0.1, "Q-OIL: scalar weight on the actor's BC loss (defaults to 0.1 for qoil; STEER uses 1.0 implicitly via the existing path).")
 
 flags.DEFINE_boolean(
     "debug", False, "Debug mode."
@@ -98,16 +100,25 @@ def on_press(key):
         elif str(key) == "'c'":
             checkpoint_key = True
         elif str(key) == "'r'":
-            print_yellow("reset")
-            requests.post("http://localhost:5000/reset_gripper")
+            requests.post("http://127.0.0.2:5000/reset_gripper")
         elif str(key) == "'o'":
-            print_yellow("open")
-            requests.post("http://localhost:5000/open_gripper")
+            requests.post("http://127.0.0.2:5000/open_gripper")
         elif str(key) == "'t'":
-            print_yellow("close gripper for reset")
-            requests.post("http://localhost:5000/close_gripper")
+            requests.post("http://127.0.0.2:5000/close_gripper")
+        # elif str(key) == "'r'":
+        #     print_yellow("reset")
+        #     requests.post("http://localhost:5000/reset_gripper")
+        # elif str(key) == "'o'":
+        #     print_yellow("open")
+        #     requests.post("http://localhost:5000/open_gripper")
+        # elif str(key) == "'t'":
+        #     print_yellow("close gripper for reset")
+        #     requests.post("http://localhost:5000/close_gripper")
         elif str(key) == "'p'":
-            print_yellow("pause")
+            if pause_key:
+                print_green("unpause")
+            else:
+                print_yellow("pause")
             pause_key = not pause_key
     except AttributeError:
         print("error")
@@ -148,7 +159,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
             print("reset start")
             ### receive signal from learner and then reset
             obs, _ = env.reset()
-            time.sleep(7.0)
+            time.sleep(4.0)
             while pause_key:
                 time.sleep(0.5)
             obs, _ = env.reset()
@@ -163,13 +174,13 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
                     seed=key
                 )
                 actions = np.asarray(jax.device_get(actions))
-
+                print(f"Gripper action: {actions[-1]}")
                 next_obs, reward, done, truncated, info = env.step(actions)
                 if failure_key:
                     print("failure detected")
                     failure_key = False
                     done = True
-                
+
                 transition = dict(
                     observations=obs,
                     actions=actions,
@@ -191,7 +202,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
                     success_counter += reward
                     print(reward)
                     print(f"{success_counter}/{episode + 1}")
-            
+
             with open(fp, "wb") as f:
                 print(f"Dumping {len(transitions)} transitions to {fp} !!!")
                 pkl.dump(transitions, f)
@@ -200,12 +211,15 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
         print(f"average time: {np.mean(time_list)}")
         return  # after done eval, return and exit
 
-    buffers = (
-        natsorted(glob.glob(os.path.join(FLAGS.checkpoint_path, "buffer/*.pkl")))
-        if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path)
-        else []
-    )
-    start_step = 1 if len(buffers) == 0 else int(os.path.basename(buffers[-1])[12:-4]) + 1
+    # Determine start_step from checkpoint if resuming (checkpoint step = actor step)
+    if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path):
+        latest_ckpt = checkpoints.latest_checkpoint(os.path.abspath(FLAGS.checkpoint_path))
+        if latest_ckpt:
+            start_step = int(os.path.basename(latest_ckpt)[11:]) + 1  # checkpoint_2000 → 2001
+        else:
+            start_step = 1
+    else:
+        start_step = 1
 
     datastore_dict = {
         "actor_env": data_store,
@@ -271,7 +285,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
     #     q_display = ImageDisplayer(q_queue, "q_display")
     #     q_display.start()
 
-    pbar = tqdm.tqdm(range(start_step, config.max_steps), dynamic_ncols=True)
+    pbar = tqdm.tqdm(range(start_step, 15000), dynamic_ncols=True)  # Actor max 8k steps
     print(config.buffer_period)
     from_time = time.time()
     cur_steps = 0
@@ -280,6 +294,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
             time.sleep(0.5)
         timer.tick("total")
 
+        t0 = time.time()
         with timer.context("sample_actions"):
             if step < config.random_steps:
                 actions = env.action_space.sample()
@@ -291,6 +306,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
                     argmax=False,
                 )
                 actions = np.asarray(jax.device_get(actions))
+        t1 = time.time()
 
         # Step environment
         # if FLAGS.show_q_values:
@@ -299,6 +315,9 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
         with timer.context("step_env"):
 
             next_obs, reward, done, truncated, info = env.step(actions)
+            t2 = time.time()
+            # if step % 10 == 0:
+            #     print(f"[TIMING] step={step} sample_actions={t1-t0:.3f}s step_env={t2-t1:.3f}s total={t2-t0:.3f}s")
             reward *= config.reward_scale
             cur_steps += 1
             if "left" in info:
@@ -381,6 +400,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
                 this_intervention = None
 
             running_return += reward
+            is_intervention_flag = 1.0 if "intervene_action" in info else 0.0
             transition = dict(
                 observations=obs,
                 actions=actions,
@@ -389,6 +409,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
                 masks=1.0 - done,
                 dones=done,
                 timestep=step,
+                is_intervention=np.float32(is_intervention_flag),
             )
             # if checkpoint_key:
             #     breakpoint()
@@ -439,11 +460,14 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng, bc_data_store 
                 time.sleep(4.0)
                 obs, _ = env.reset()
                 # For synchronizing learner and actor...: FLAG: synchronize_actor
-                if step > learner_step * 0.1 + 10:
-                    print("Stopped actor")
+                # Only sync AFTER the learner has actually trained past training_starts.
+                # Without this guard the actor would block at end-of-episode-1 forever if
+                # the learner crashed, because learner_step starts at 0.
+                if learner_step > config.training_starts and step > learner_step * 0.1 + 10:
+                    print(f"Stopped actor (env_step={step}, learner_step={learner_step})")
                     while step > learner_step * 0.1 + 10:
                         time.sleep(0.5)
-                    print("Released actor")
+                    print(f"Released actor (env_step={step}, learner_step={learner_step})")
                 print("reset end")
                 failure_key = False
                 from_time = time.time()
@@ -524,12 +548,16 @@ def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, bc_
         on_press=on_press)
     listener.start()
 
-    start_step = (
-        int(os.path.basename(checkpoints.latest_checkpoint(os.path.abspath(FLAGS.checkpoint_path)))[11:])
-        + 1
-        if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path)
-        else 0
-    )
+    # Learner starts at 10x the checkpoint step (checkpoint step = actor step)
+    if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path):
+        latest_ckpt = checkpoints.latest_checkpoint(os.path.abspath(FLAGS.checkpoint_path))
+        if latest_ckpt:
+            actor_ckpt_step = int(os.path.basename(latest_ckpt)[11:])  # checkpoint_2000 → 2000
+            start_step = actor_ckpt_step * 10 + 1  # learner at 20001
+        else:
+            start_step = 0
+    else:
+        start_step = 0
     step = start_step
 
     if isinstance(agent, SACAgent):
@@ -538,6 +566,10 @@ def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, bc_
     else:
         train_critic_networks_to_update = frozenset({"critic", "grasp_critic"})
         train_networks_to_update = frozenset({"critic", "grasp_critic", "actor", "temperature"})
+
+    if FLAGS.method == "qoil":
+        train_critic_networks_to_update = train_critic_networks_to_update | frozenset({"optimism_critic", "optimism_grasp_critic"})
+        train_networks_to_update = train_networks_to_update | frozenset({"optimism_critic", "optimism_grasp_critic"})
 
     def stats_callback(type: str, payload: dict) -> dict:
         """Callback for when server receives stats request."""
@@ -616,7 +648,7 @@ def learner(rng, agent: SACAgentHybridSingleArm, replay_buffer, demo_buffer, bc_
 
     env_step_threshold = len(replay_buffer)
     for step in tqdm.tqdm(
-        range(start_step + config.pretraining_steps, config.max_steps + config.pretraining_steps), dynamic_ncols=True, desc="learner"
+        range(start_step + config.pretraining_steps, 1000000 + config.pretraining_steps), dynamic_ncols=True, desc="learner"  # Learner max 80k steps
     ):
         while pause_key:
             time.sleep(0.5)
@@ -685,16 +717,37 @@ def main(_):
     # Automatically determine use_bc_loss based on method
     if FLAGS.method == "hgdagger":
         use_bc_loss = True
+        use_optimism_critic = False
+        bc_timestep_decay = FLAGS.bc_timestep_decay
+        bc_loss_coeff = 1.0
+        bonus_frac = 0.0
         print_green("Using HG-DAgger (BC on demos + interventions).")
     elif FLAGS.method == "hil":
         use_bc_loss = False
+        use_optimism_critic = False
+        bc_timestep_decay = FLAGS.bc_timestep_decay
+        bc_loss_coeff = 1.0
+        bonus_frac = 0.0
         print_green("Using HIL (RL + interventions, no BC).")
     elif FLAGS.method == "steer":
         use_bc_loss = True
+        use_optimism_critic = False
+        bc_timestep_decay = FLAGS.bc_timestep_decay
+        bc_loss_coeff = 1.0
+        bonus_frac = 0.0
         print_green("Using STEER (BC on interventions with optional decay + RL).")
         print_green(f"  BC timestep decay: {FLAGS.bc_timestep_decay}")
+    elif FLAGS.method == "qoil":
+        use_bc_loss = True
+        use_optimism_critic = True
+        bc_timestep_decay = 0.0  # Q-OIL uses constant BC weight, no decay
+        bc_loss_coeff = FLAGS.bc_loss_coeff
+        bonus_frac = FLAGS.bonus_frac
+        print_green("Using Q-OIL (Q-Optimism + BC).")
+        print_green(f"  bonus_frac: {bonus_frac} (bonus_abs = bonus_frac * reward_scale)")
+        print_green(f"  bc_loss_coeff: {bc_loss_coeff}")
     else:
-        raise ValueError(f"Unknown method: {FLAGS.method}. Valid values: hgdagger, hil, steer")
+        raise ValueError(f"Unknown method: {FLAGS.method}. Valid values: hgdagger, hil, steer, qoil")
 
     assert config.batch_size % num_devices == 0
     # seed
@@ -731,7 +784,11 @@ def main(_):
             discount=config.discount,
             has_image=True,
             use_bc_loss=use_bc_loss,
-            bc_timestep_decay=FLAGS.bc_timestep_decay
+            bc_timestep_decay=bc_timestep_decay,
+            use_optimism_critic=use_optimism_critic,
+            bonus_frac=bonus_frac,
+            bc_loss_coeff=bc_loss_coeff,
+            reward_scale=config.reward_scale,
         )
         include_grasp_penalty = True
     elif config.setup_mode == 'dual-arm-learned-gripper':
@@ -772,6 +829,7 @@ def main(_):
             capacity=config.replay_buffer_capacity,
             image_keys=config.image_keys,
             include_grasp_penalty=include_grasp_penalty,
+            include_is_intervention=use_optimism_critic,
         )
         # set up wandb and logging
         wandb_logger = make_wandb_logger(
@@ -788,6 +846,7 @@ def main(_):
             capacity=config.replay_buffer_capacity,
             image_keys=config.image_keys,
             include_grasp_penalty=include_grasp_penalty,
+            include_is_intervention=use_optimism_critic,
         )
         return demo_buffer
 
@@ -801,6 +860,7 @@ def main(_):
             image_keys=config.image_keys,
             include_grasp_penalty=include_grasp_penalty,
             include_timestep=True,
+            include_is_intervention=use_optimism_critic,
         )
         return bc_buffer
 
@@ -818,6 +878,8 @@ def main(_):
                 with open(file, "rb") as f:
                     transitions = pkl.load(f)
                     for transition in transitions:
+                        if use_optimism_critic and 'is_intervention' not in transition:
+                            transition['is_intervention'] = np.float32(0.0)
                         replay_buffer.insert(transition)
             print_green(
                 f"Loaded previous buffer data. Replay buffer size: {len(replay_buffer)}"
@@ -829,6 +891,8 @@ def main(_):
                 with open(file, "rb") as f:
                     transitions = pkl.load(f)
                     for transition in transitions:
+                        if use_optimism_critic and 'is_intervention' not in transition:
+                            transition['is_intervention'] = np.float32(0.0)
                         demo_buffer.insert(transition)
             print_green(
                 f"Loaded previous demo buffer data. Demo buffer size: {len(demo_buffer)}"
@@ -843,6 +907,8 @@ def main(_):
                         if 'timestep' not in transition:
                             raise Exception()
                             transition['timestep'] = 0  # Set default for old checkpoint data
+                        if use_optimism_critic and 'is_intervention' not in transition:
+                            transition['is_intervention'] = np.float32(0.0)
                         bc_buffer.insert(transition)
             print_green(
                 f"Loaded previous bc buffer data. Bc buffer size: {len(bc_buffer)}"
@@ -868,14 +934,16 @@ def main(_):
                             if img.ndim == 4 and img.shape[0] == 1:
                                 img = img[0]
                             transition['next_observations'][k] = cv2.resize(img, (128, 128))
-                        if transition['actions'].shape == (4,):
-                            transition['actions'] = np.concatenate([transition['actions'][:3], np.zeros((3,)), transition['actions'][3:]], axis=0)
+                        # Keep 4D actions if using XYZGripperActionWrapper
+                        # (Skip 7D conversion - buffer expects 4D)
                         transition['grasp_penalty'] = 0
                         assert transition['rewards'] < 1 + 1e-6 and transition['rewards'] > -1e-6, f"{transition['rewards']}"
 
                         num_demos += transition['rewards']
                         transition['rewards'] *= config.reward_scale
                         transition['timestep'] = 0
+                        if use_optimism_critic:
+                            transition['is_intervention'] = np.float32(0.0)
                         demo_buffer.insert(transition)
                         if bc_buffer is not None and FLAGS.seed_bc_buffer:
                             bc_buffer.insert(transition)

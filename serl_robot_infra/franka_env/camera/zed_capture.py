@@ -65,8 +65,10 @@ class ZedCapture:
         self._cam.set_camera_settings(sl.VIDEO_SETTINGS.EXPOSURE, -1)
         # self._cam.set_camera_settings(sl.VIDEO_SETTINGS.AUTO_EXPOSURE_TIME_RANGE, True)
 
-        assert dim == (self._cam.get_camera_information().camera_configuration.resolution.height,
-            self._cam.get_camera_information().camera_configuration.resolution.width)
+        # assert dim == (self._cam.get_camera_information().camera_configuration.resolution.height,
+        #     self._cam.get_camera_information().camera_configuration.resolution.width)
+        res = self._cam.get_camera_information().camera_configuration.resolution
+        assert dim == (res.width, res.height), f"Got {dim}, expected {(res.width, res.height)}. Adjust the dim parameter accordingly."
         self.dim = dim
 
         self._runtime = sl.RuntimeParameters()
@@ -79,7 +81,8 @@ class ZedCapture:
         # https://github.com/droid-dataset/droid/blob/main/scripts/training/sanity_check/state_obs.py#L13
         # https://github.com/droid-dataset/droid/blob/main/scripts/training/train_policy.py#L25
         # self.traj_resolution = sl.Resolution(128, 128)
-        self.zed_resolution = sl.Resolution(0, 0)
+        # self.zed_resolution = sl.Resolution(0, 0)
+        self.zed_resolution = sl.Resolution(self.dim[0], self.dim[1])
 
     def read(self):
         #return True, np.zeros((*self.dim, 3))
@@ -92,7 +95,9 @@ class ZedCapture:
         self._cam.retrieve_image(self._left_img, sl.VIEW.LEFT, resolution=self.zed_resolution)
         frame = self._left_img.get_data()
         frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
-        assert frame.shape == (*self.dim, 3)
+        # assert frame.shape == (*self.dim, 3)
+        h, w, c = frame.shape
+        assert (w, h) == self.dim
 
         return True, frame
 
